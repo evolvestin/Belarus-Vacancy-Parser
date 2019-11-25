@@ -1,1 +1,1 @@
-worker: python bitva-checker.py
+worker: python updater1000.py
