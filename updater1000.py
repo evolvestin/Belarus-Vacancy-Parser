@@ -1,4 +1,4 @@
-﻿import gspread
+import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import telebot
 from telebot import types
@@ -12,7 +12,6 @@ from datetime import datetime
 import _thread
 import random
 import copy
-from SQL import SQLighter
 from bs4 import BeautifulSoup
 
 
