@@ -91,7 +91,7 @@ def checker():
             cock += col
             i = 1
             while (i % (col + 1)) != 0 and old >= 5:
-                sleep(0.05)
+                sleep(0.01)
                 text = requests.get(adress + str(old) + '?embed=1')
                 print('работаю ' + adress + str(old))
                 if str(old) not in ignore:
