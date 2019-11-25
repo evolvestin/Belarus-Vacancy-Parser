@@ -19,9 +19,9 @@ stamp1 = int(datetime.now().timestamp())
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
 client1 = gspread.authorize(creds1)
-data1 = client1.open('eustorage').worksheet('old')
+data1 = client1.open('storage').worksheet('old')
 
-bot = telebot.TeleBot('659292396:AAEeJKTEU4g2168cADrQx6QmN7IzSrJX_Ok')
+bot = telebot.TeleBot('429683355:AAF3GReDyewByK-WRLQ44xpCNKIsYg1G8X0')
 idMe = 396978030
 ignore = str(data1.cell(1, 1).value)
 old = str(data1.cell(2, 1).value)
@@ -29,7 +29,7 @@ old = old.split('/')
 cock = int(old[1])
 old = int(old[0])
 ignore = ignore.split('/')
-adress = 'https://t.me/ChatWarsAuction/'
+adress = 'https://t.me/chatwars3/'
 
 # ====================================================================================
 
@@ -85,7 +85,7 @@ def checker():
             print(log(0))
             creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
             client1 = gspread.authorize(creds1)
-            data1 = client1.open('eustorage').worksheet('old')
+            data1 = client1.open('storage').worksheet('old')
             col = 1000
             cell_list = data1.range('A' + str(cock) + ':A' + str(cock + col))
             cock += col
@@ -116,7 +116,7 @@ def checker():
                 except:
                     creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
                     client1 = gspread.authorize(creds1)
-                    data1 = client1.open('eustorage').worksheet('old')
+                    data1 = client1.open('storage').worksheet('old')
                     data1.update_cells(cell_list)
                     data1.update_cell(2, 1, string)
         except Exception as e:
