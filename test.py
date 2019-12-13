@@ -30,7 +30,7 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
 
-direct1 = '/dev'
+direct1 = '/dev/log'
 kek = os.listdir(direct1)
 print(kek)
 for i in kek:
