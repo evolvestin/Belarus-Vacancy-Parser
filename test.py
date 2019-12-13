@@ -29,6 +29,8 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
+print(os.environ['TOKEN'])
+_thread.exit()
 
 direct1 = '/dev/log'
 logfile_start = open(direct1)
