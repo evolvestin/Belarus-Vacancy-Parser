@@ -29,7 +29,10 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
-
+logfile_start = open('/app/.profile.d')
+print(logfile_start.read())
+logfile_start2 = open('/app/.heroku')
+print(logfile_start2.read())
 kek = os.listdir('/')
 print(kek)
 for i in kek:
