@@ -36,20 +36,28 @@ print(kek)
 for i in kek:
     direct2 = direct1 + '/' + i
     if i != 'lost+found':
-        g = os.listdir(direct2)
-        for m in g:
-            direct3 = '/' + i + '/' + m
-            try:
-                mom = os.listdir(direct3)
-                print('директория ' + str(direct3) + ' ' +  str(mom))
-                print('---------------------------------------------------------------------------')
-            except:
+        try:
+            g = os.listdir(direct2)
+            for m in g:
+                direct3 = '/' + i + '/' + m
                 try:
-                    logfile_start = open(direct3)
-                    print(logfile_start.read())
-                except:
-                    print('ну хуй знает че это')
+                    mom = os.listdir(direct3)
+                    print('директория ' + str(direct3) + ' ' +  str(mom))
                     print('---------------------------------------------------------------------------')
+                except:
+                    try:
+                        logfile_start = open(direct3)
+                        print(logfile_start.read())
+                    except:
+                        print('ну хуй знает че это')
+                        print('---------------------------------------------------------------------------')
+        except:
+            try:
+                logfile_start = open(direct2)
+                print(logfile_start.read())
+            except:
+                print('---------------------------------------------------------------------------')
+
      
 _thread.exit()
 
