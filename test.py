@@ -33,8 +33,9 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 kek = os.listdir('/')
 print(kek)
 for i in kek:
-    g = os.listdir('/' + i)
-    print(i + '   ' + str(g))
+    if g != 'lost+found':
+        g = os.listdir('/' + i)
+        print(i + '   ' + str(g))
 _thread.exit()
 
 def logtime(stamp):
