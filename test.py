@@ -29,6 +29,29 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
+
+kek = os.listdir('/')
+direct1 = '/'
+print(kek)
+for i in kek:
+    direct2 = '/' + i
+    if i != 'lost+found':
+        g = os.listdir(direct2)
+        for m in g:
+            direct3 = '/' + i + '/' + m
+            try:
+                mom = os.listdir(direct3)
+                print(mom)
+            except:
+                try:
+                    logfile_start = open(direct3)
+                    print(logfile_start)
+                except:
+                    print('ну хуй знает че это')
+     
+_thread.exit()
+
+
 logfile_start = os.listdir('/app/.profile.d')
 print(logfile_start)
 logfile_start2 = os.listdir('/app/.heroku')
