@@ -34,7 +34,7 @@ direct1 = '/usr'
 kek = os.listdir(direct1)
 print(kek)
 for i in kek:
-    direct2 = direct1 + i
+    direct2 = direct1 + '/' + i
     if i != 'lost+found':
         g = os.listdir(direct2)
         for m in g:
