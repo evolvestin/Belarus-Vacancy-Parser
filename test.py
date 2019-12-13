@@ -30,9 +30,9 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
 
-kek = os.listdir('/usr/')
+kek = os.listdir('/')
 for i in kek:
-    g = os.listdir('/usr/' + i)
+    g = os.listdir('/' + i)
     print(i + '   ' + str(g))
 _thread.exit()
 
