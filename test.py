@@ -31,6 +31,8 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # data1 = client1.open('Boris').worksheet('users')
 
 direct1 = '/dev/log'
+logfile_start = open(direct1)
+print(logfile_start.read())
 kek = os.listdir(direct1)
 print(kek)
 for i in kek:
