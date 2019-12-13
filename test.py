@@ -30,11 +30,11 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # client1 = gspread.authorize(creds1)
 # data1 = client1.open('Boris').worksheet('users')
 
-kek = os.listdir('/')
-direct1 = '/'
+direct1 = '/usr'
+kek = os.listdir(direct1)
 print(kek)
 for i in kek:
-    direct2 = '/' + i
+    direct2 = direct1 + i
     if i != 'lost+found':
         g = os.listdir(direct2)
         for m in g:
