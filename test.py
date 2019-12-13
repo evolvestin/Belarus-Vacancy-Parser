@@ -32,7 +32,7 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 
 kek = os.listdir('/')
 for i in kek:
-    g = os listdir('/' + i)
+    g = os.listdir('/' + i)
     print(i + '   ' + str(g))
 _thread.exit()
 
