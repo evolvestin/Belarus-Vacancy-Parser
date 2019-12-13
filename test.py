@@ -19,8 +19,6 @@ import random
 import json
 import copy
 import sys
-from SQL import SQLighter
-import iog
 from collections import defaultdict
 
 firsthelp = 1
