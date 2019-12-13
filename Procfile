@@ -1,1 +1,1 @@
-worker: python updater1000.py
+worker: python test.py
