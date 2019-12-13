@@ -31,6 +31,7 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 # data1 = client1.open('Boris').worksheet('users')
 
 kek = os.listdir('/')
+print(kek)
 for i in kek:
     g = os.listdir('/' + i)
     print(i + '   ' + str(g))
