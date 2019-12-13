@@ -41,13 +41,15 @@ for i in kek:
             direct3 = '/' + i + '/' + m
             try:
                 mom = os.listdir(direct3)
-                print(mom)
+                print('директория ' + str(direct3) + ' ' +  str(mom))
+                print('---------------------------------------------------------------------------')
             except:
                 try:
                     logfile_start = open(direct3)
-                    print(logfile_start)
+                    print(logfile_start.read())
                 except:
                     print('ну хуй знает че это')
+                    print('---------------------------------------------------------------------------')
      
 _thread.exit()
 
