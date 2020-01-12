@@ -104,8 +104,8 @@ def repeat_all_messages(message):
                     tags = tag_list.find_all('a')
                     tag_array = []
                     for i in tags:
-                        tag = re.sub('[\s-]', '_', i.get_text()
-                        tag_array.append(tag))
+                        tag = re.sub('[\s-]', '_', i.get_text())
+                        tag_array.append(re.sub('_/_', ' #', tag))
                     growing['tags'] = tag_array
 
                 money = soup.find('div', class_='vacancy__salary')
