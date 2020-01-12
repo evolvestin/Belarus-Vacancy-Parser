@@ -71,8 +71,12 @@ def repeat_all_messages(message):
     try:
         if message.chat.id == idMe or message.chat.id == idAndre:
             if message.text.startswith('https://praca.by/vacancy/'):
-                text = requests.get(message.text)
-                soup = BeautifulSoup(text.text, 'html.parser')
+                req = requests.get(message.text)
+                soup = BeautifulSoup(req.text, 'html.parser')
+                if soup.find('span', class_='hidden-vac-contact') is not None:
+                    req = requests.get(message.text +
+                                       '?token=wykzQ7x5oq6kZWG7naOvHprT4vcZ1vdFFUSXoOfmKR10pPWq0ox5acYvr3wcfg00')
+                    soup = BeautifulSoup(req.text, 'html.parser')
                 growing = {}
                 starting = ['title', 'place', 'tags', 'money', 'org_name', 'schedule', 'employment', 'short_place',
                             'experience', 'education', 'contact', 'numbers', 'description', 'email', 'metro']
@@ -174,7 +178,7 @@ def repeat_all_messages(message):
                                 point = ''
                                 if lists.index(g) + 1 < 10:
                                     point = number_list[lists.index(g) + 1]
-                                text += point + ' ' + g.get_text().capitalize() + '\n'
+                                text += point + ' ' + re.sub('\n', '', g.get_text().capitalize()) + '\n'
                         else:
                             text = ''
                             temp = i.get_text().strip()
@@ -185,7 +189,7 @@ def repeat_all_messages(message):
                         main += text
                     main = main[:-1]
                     if len(tempering) > 0:
-                        main += '\n'
+                        main += '\n\n'
                     for i in tempering:
                         main += i + '\n'
                     growing['description'] = main
