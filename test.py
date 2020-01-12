@@ -220,7 +220,7 @@ def repeat_all_messages(message):
                 if growing['email'] != 'none':
                     text += growing['email'] + ' ➡ Резюме\n'
                 if growing['place'] != 'none':
-                    text += '\n🏘 Адрес\n' + growing['place'] + '\n'
+                    text += bold('\n🏘 Адрес\n') + growing['place'] + '\n'
                 if growing['metro'] != 'none':
                     text += '🚇 ' + growing['metro'] + '\n'
                 if growing['tags'] != 'none':
