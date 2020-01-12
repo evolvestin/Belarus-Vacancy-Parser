@@ -7,9 +7,8 @@ import traceback
 from time import sleep
 from bs4 import BeautifulSoup
 from datetime import datetime
-from collections import defaultdict
 
-bot = telebot.TeleBot('587974580:AAFGcUwspPdr2pU44nJqLD-ps9FxSwUJ6mg')
+bot = telebot.TeleBot('993071212:AAFbZvEx8IJaL1_8fWNDs4qdAJHNMKTnS7U')
 idAndre = 470292601
 idMe = 396978030
 
@@ -105,7 +104,8 @@ def repeat_all_messages(message):
                     tags = tag_list.find_all('a')
                     tag_array = []
                     for i in tags:
-                        tag_array.append(re.sub('[\s-]', '_', i.get_text()))
+                        tag = re.sub('[\s-]', '_', i.get_text()
+                        tag_array.append(tag))
                     growing['tags'] = tag_array
 
                 money = soup.find('div', class_='vacancy__salary')
