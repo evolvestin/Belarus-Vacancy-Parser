@@ -196,13 +196,13 @@ def repeat_all_messages(message):
                 if growing['short_place'] != 'none':
                     text += '🏙 ' + growing['short_place'] + '\n'
                 if growing['schedule'] != 'none':
-                    text += '📈 График ➡ ' + growing['schedule'] + '\n'
+                    text += '📈 График ➡ ' + growing['schedule'].capitalize() + '\n'
                 if growing['employment'] != 'none':
-                    text += '⏰ Занятость ➡ ' + growing['employment'] + '\n'
+                    text += '⏰ Занятость ➡ ' + growing['employment'].capitalize() + '\n'
                 if growing['experience'] != 'none':
-                    text += '🏅 Опыт работы ➡ ' + growing['experience'] + '\n'
+                    text += '🏅 Опыт работы ➡ ' + growing['experience'].capitalize() + '\n'
                 if growing['education'] != 'none':
-                    text += '👨‍🎓 Образование ➡ ' + growing['education'] + '\n'
+                    text += '👨‍🎓 Образование ➡ ' + growing['education'].capitalize() + '\n'
                 if growing['money'] != 'none':
                     more = ''
                     if growing['money'][1] != 'none':
