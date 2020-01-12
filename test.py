@@ -1,133 +1,238 @@
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import unicodedata
-from unidecode import unidecode
-import traceback
-import heroku3
-import telebot
-from telebot import types
-import urllib3
 import re
-import requests
-import time
-from time import sleep
-import datetime
-from datetime import datetime
-import _thread
-import os
-import random
-import json
-import copy
 import sys
+import _thread
+import telebot
+import requests
+import traceback
+from time import sleep
+from bs4 import BeautifulSoup
+from datetime import datetime
 from collections import defaultdict
 
-firsthelp = 1
-tkn = '659292396:AAEeJKTEU4g2168cADrQx6QmN7IzSrJX_Ok'
-bot = telebot.TeleBot(tkn)
+bot = telebot.TeleBot('587974580:AAFGcUwspPdr2pU44nJqLD-ps9FxSwUJ6mg')
+idAndre = 470292601
 idMe = 396978030
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-# creds1 = ServiceAccountCredentials.from_json_keyfile_name('xstorage1.json', scope)
-# client1 = gspread.authorize(creds1)
-# data1 = client1.open('Boris').worksheet('users')
-print('TOKEN = ' + str(os.environ['TOKEN']))
-_thread.exit()
 
-direct1 = '/dev/log'
-logfile_start = open(direct1)
-print(logfile_start.read())
-kek = os.listdir(direct1)
-print(kek)
-for i in kek:
-    direct2 = direct1 + '/' + i
-    if i != 'lost+found':
-        try:
-            g = os.listdir(direct2)
-            for m in g:
-                direct3 = '/' + i + '/' + m
-                try:
-                    mom = os.listdir(direct3)
-                    print('директория ' + str(direct3) + ' ' +  str(mom))
-                    print('---------------------------------------------------------------------------')
-                except:
-                    try:
-                        logfile_start = open(direct3)
-                        print(logfile_start.read())
-                    except:
-                        print('ну хуй знает че это')
-                        print('---------------------------------------------------------------------------')
-        except:
-            try:
-                logfile_start = open(direct2)
-                print(logfile_start.read())
-            except:
-                print('---------------------------------------------------------------------------')
+calendar_list = {
+    'января': '01',
+    'февраля': '02',
+    'марта': '03',
+    'апреля': '04',
+    'мая': '05',
+    'июня': '06',
+    'июля': '07',
+    'августа': '08',
+    'сентября': '09',
+    'октября': '10',
+    'ноября': '11',
+    'декабря': '12'
+}
 
-     
-_thread.exit()
+number_list = {
+    1: '1️⃣',
+    2: '2️⃣',
+    3: '3️⃣',
+    4: '4️⃣',
+    5: '5️⃣',
+    6: '6️⃣',
+    7: '7️⃣',
+    8: '8️⃣',
+    9: '9️⃣',
+    10: '🔟'
+}
 
 
-logfile_start = os.listdir('/app/.profile.d')
-print(logfile_start)
-logfile_start2 = os.listdir('/app/.heroku')
-print(logfile_start2)
-kek = os.listdir('/')
-print(kek)
-for i in kek:
-    if i != 'lost+found':
-        g = os.listdir('/' + i)
-        print(i + '   ' + str(g))
-_thread.exit()
-
-def logtime(stamp):
-    if stamp == 0:
-        stamp = int(datetime.now().timestamp())
-    weekday = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%a')
-    if weekday == 'Mon':
-        weekday = 'Пн'
-    elif weekday == 'Tue':
-        weekday = 'Вт'
-    elif weekday == 'Wed':
-        weekday = 'Ср'
-    elif weekday == 'Thu':
-        weekday = 'Чт'
-    elif weekday == 'Fri':
-        weekday = 'Пт'
-    elif weekday == 'Sat':
-        weekday = 'Сб'
-    elif weekday == 'Sun':
-        weekday = 'Вс'
-    day = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%d')
-    month = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%m')
-    year = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%Y')
-    hours = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%H')
-    minutes = datetime.utcfromtimestamp(int(stamp)).strftime('%M')
-    seconds = datetime.utcfromtimestamp(int(stamp)).strftime('%S')
-    data = '<code>' + str(weekday) + ' ' + str(day) + '.' + str(month) + '.' + str(year) + \
-           ' ' + str(hours) + ':' + str(minutes) + ':' + str(seconds) + '</code>'
-    return data
+def bold(txt):
+    return '<b>' + txt + '</b>'
 
 
-def printer(printext):
-    global stamp_creategooglerow
-    thread_name = str(thread_array[_thread.get_ident()]['name'])
-    logfile = open('log.txt', 'a')
-    log_print_text = '\n' + re.sub('<.*?>', '', logtime(0)) + ' ' + thread_name + ' ' + printext
-    logfile.write(log_print_text)
-    logfile.close()
-    print(log_print_text)
-    if thread_name == 'creategooglerow':
-        stamp_creategooglerow = int(datetime.now().timestamp())
+def code(txt):
+    return '<code>' + txt + '</code>'
 
 
-def thread_name():
-    return str(thread_array[_thread.get_ident()]['name']) + ' '
+def executive(new, logs):
+    search = re.search('<function (\S+)', str(new))
+    if search:
+        name = search.group(1)
+    else:
+        name = ''
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
+    error = ''
+    for i in error_raw:
+        error += str(i)
+    bot.send_message(idMe, 'Вылет ' + name + '\n' + error)
+
+
+bot.send_message(idMe, 'запуск')
 
 
 @bot.message_handler(func=lambda message: message.text)
 def repeat_all_messages(message):
-    for i in thread_array:
-        print(feature.created_at)
-        print(str(i) + ' ' + str(thread_array[i]['name']) + ' ' + str(thread_array[i]['function']))
+    try:
+        if message.chat.id == idMe or message.chat.id == idAndre:
+            if message.text.startswith('https://praca.by/vacancy/'):
+                text = requests.get(message.text)
+                soup = BeautifulSoup(text.text, 'html.parser')
+                growing = {}
+                starting = ['title', 'place', 'tags', 'money', 'org_name', 'schedule', 'employment', 'short_place',
+                            'experience', 'education', 'contact', 'numbers', 'description', 'email', 'metro']
+                for i in starting:
+                    growing[i] = 'none'
+
+                title = soup.find('h1', class_='vacancy__title')
+                if title is not None:
+                    growing['title'] = title.get_text().strip()
+
+                place = soup.find('div', class_='job-address')
+                if place is not None:
+                    growing['place'] = re.sub('\s+', ' ', place.get_text().strip())
+
+                short_place = soup.find('div', class_='vacancy__city')
+                if short_place is not None:
+                    growing['short_place'] = re.sub('\s+', ' ', short_place.get_text().strip())
+
+                metro = soup.find('div', class_='vacancy__metro')
+                if metro is not None:
+                    metro_array = metro.find_all('span', class_='nowrap')
+                    metro = ''
+                    for i in metro_array:
+                        metro += re.sub('\s+', ' ', i.get_text().capitalize().strip() + ', ')
+                    growing['metro'] = metro[:-2]
+
+                tag_list = soup.find('div', class_='categories')
+                if tag_list is not None:
+                    tags = tag_list.find_all('a')
+                    tag_array = []
+                    for i in tags:
+                        tag_array.append(re.sub('[\s-]', '_', i.get_text()))
+                    growing['tags'] = tag_array
+
+                money = soup.find('div', class_='vacancy__salary')
+                if money is not None:
+                    money = re.sub('\s', '', money.get_text())
+                    search_gold = re.search('(\d+)', money)
+                    search = re.search('ивыше', money)
+                    money_array = []
+                    more = 'none'
+                    if search_gold:
+                        money_array.append(search_gold.group(1))
+                    if search:
+                        more = 'more'
+                    money_array.append(more)
+                    growing['money'] = money_array
+
+                org_name = soup.find('div', class_='org-info__item org-info__name')
+                if org_name is not None:
+                    growing['org_name'] = re.sub('\s+', ' ', org_name.find('a').get_text().strip())
+
+                items = soup.find_all('div', class_='vacancy__item')
+                for i in items:
+                    schedule = i.find('i', class_='pri-schedule')
+                    if schedule is not None:
+                        schedule = i.find('div', class_='vacancy__desc').get_text().strip()
+                        growing['schedule'] = re.sub('\s+', ' ', schedule)
+
+                    employment = i.find('i', class_='pri-employment')
+                    if employment is not None:
+                        employment = i.find('div', class_='vacancy__desc').get_text().strip()
+                        growing['employment'] = re.sub('\s+', ' ', employment)
+
+                    experience = i.find('p', class_='vacancy__experience')
+                    if experience is not None:
+                        experience = re.sub('Опыт работы', '', experience.get_text())
+                        growing['experience'] = re.sub('\s+', ' ', experience.strip())
+
+                    education = i.find('p', class_='vacancy__education')
+                    if education is not None:
+                        education = re.sub('.бразование', '', education.get_text())
+                        growing['education'] = re.sub('\s+', ' ', education.strip())
+
+                    contact = i.find('div', class_='vacancy__term')
+                    if contact.get_text() == 'Контактное лицо:':
+                        growing['contact'] = re.sub('\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
+                    if contact.get_text() == 'Электронная почта:':
+                        if i.find('div', class_='vacancy__desc') is not None:
+                            growing['email'] = re.sub('\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
+                    if contact.get_text() == 'Номера телефонов:':
+                        number_array = i.find_all('span', class_='nowrap')
+                        number = ''
+                        for g in number_array:
+                            number += re.sub('\s+', ' ', g.get_text().strip()) + '\n'
+                        growing['numbers'] = number[:-1]
+
+                description = soup.find('div', class_='description')
+                if description is not None:
+                    description = description.find_all(['p', 'ul'])
+                    tempering = []
+                    main = ''
+                    for i in description:
+                        lists = i.find_all('li')
+                        if len(lists) != 0:
+                            text = ''
+                            for g in lists:
+                                point = ''
+                                if lists.index(g) + 1 < 10:
+                                    point = number_list[lists.index(g) + 1]
+                                text += point + ' ' + g.get_text().capitalize() + '\n'
+                        else:
+                            text = ''
+                            temp = i.get_text().strip()
+                            if temp.endswith(':'):
+                                text += '\n📃 ' + bold(temp) + '\n'
+                            else:
+                                tempering.append(temp)
+                        main += text
+                    main = main[:-1]
+                    if len(tempering) > 0:
+                        main += '\n'
+                    for i in tempering:
+                        main += i + '\n'
+                    growing['description'] = main
+
+                text = ''
+                if growing['title'] != 'none':
+                    text += '👨🏻‍💻 ' + bold(growing['title']) + '\n'
+                if growing['short_place'] != 'none':
+                    text += '🏙 ' + growing['short_place'] + '\n'
+                if growing['schedule'] != 'none':
+                    text += '📈 График ➡ ' + growing['schedule'] + '\n'
+                if growing['employment'] != 'none':
+                    text += '⏰ Занятость ➡ ' + growing['employment'] + '\n'
+                if growing['experience'] != 'none':
+                    text += '🏅 Опыт работы ➡ ' + growing['experience'] + '\n'
+                if growing['education'] != 'none':
+                    text += '👨‍🎓 Образование ➡ ' + growing['education'] + '\n'
+                if growing['money'] != 'none':
+                    more = ''
+                    if growing['money'][1] != 'none':
+                        more += '+'
+                    text += '💸 ' + bold('З/П ') + growing['money'][0] + more + ' руб.' + '\n'
+                if growing['description'] != 'none':
+                    text += growing['description'] + '\n'
+                text += bold('\n📔 Контакты\n')
+                if growing['org_name'] != 'none':
+                    text += growing['org_name'] + '\n'
+                if growing['contact'] != 'none':
+                    text += growing['contact'] + '\n'
+                if growing['numbers'] != 'none':
+                    text += growing['numbers'] + '\n'
+                if growing['email'] != 'none':
+                    text += growing['email'] + ' ➡ Резюме\n'
+                if growing['place'] != 'none':
+                    text += '\n🏘 Адрес\n' + growing['place'] + '\n'
+                if growing['metro'] != 'none':
+                    text += '🚇 ' + growing['metro'] + '\n'
+                if growing['tags'] != 'none':
+                    for i in growing['tags']:
+                        text += '#' + i + ' '
+                    text = text[:-1]
+            else:
+                text = bold('нахуй иди ДОЛБАЕБ)')
+
+            bot.send_message(message.chat.id, text, parse_mode='HTML')
+    except IndexError:
+        executive(repeat_all_messages, 1)
 
 
 def telepol():
@@ -139,56 +244,5 @@ def telepol():
         telepol()
 
 
-def helper():
-    while True:
-        try:
-            global firsthelp
-            if firsthelp == 1:
-                logfile = open('logs.txt', 'w')
-                logfile.write('Начало записи лога ' + re.sub('<.*?>', '', logtime(0)))
-                logfile.close()
-                firsthelp = 0
-            sleep(1)
-            print(thread_name() + logtime(0))
-            sleep(10)
-        except IndexError and Exception as e:
-            print(' вылет залупы ' + logtime(0))
-
-
-def helper2():
-    while True:
-        try:
-            sleep(2)
-            print(thread_name() + 'начало')
-            logfile = open('logs.txt', 'a')
-            logfile.write('\n' + re.sub('<.*?>', '', logtime(0)) + ' начало')
-            logfile.close()
-            sleep(10)
-        except IndexError and Exception as e:
-            print(' вылет залупы ' + logtime(0))
-
-
-def helper7():
-    while True:
-        try:
-            global stamp_creategooglerow
-            sleep(60)
-            print(thread_name() + logtime(0))
-            now = int(datetime.now().timestamp()) - 20 * 60
-            if now > stamp_creategooglerow:
-                bot.send_message(idMe, '<b>creategooglerow</b> не отвечает уже 20 минут', parse_mode='HTML')
-            sleep(1200)
-        except IndexError and Exception as e:
-            print(' вылет залупы ' + logtime(0))
-
-
 if __name__ == '__main__':
-    array = [helper, helper2, helper7]
-    thread_array = defaultdict(dict)
-    for i in array:
-        thread_id = _thread.start_new_thread(i, ())
-        thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(i))
-        thread_array[thread_id] = defaultdict(dict)
-        thread_array[thread_id]['name'] = thread_start_name[0]
-        thread_array[thread_id]['function'] = i
     telepol()
