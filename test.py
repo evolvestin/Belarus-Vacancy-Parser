@@ -1,5 +1,6 @@
 import re
 import sys
+import tkn
 import _thread
 import gspread
 import telebot
@@ -148,7 +149,8 @@ def logtime(stamp):
 logfile_start = open('log.txt', 'w')
 logfile_start.write('Начало записи лога ' + re.sub('<.*?>', '', logtime(0)))
 logfile_start.close()
-bot = telebot.TeleBot('993071212:AAFbZvEx8IJaL1_8fWNDs4qdAJHNMKTnS7U')
+# bot = telebot.TeleBot('993071212:AAFbZvEx8IJaL1_8fWNDs4qdAJHNMKTnS7U')
+bot = telebot.TeleBot(tkn.tkn)
 start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0), parse_mode='HTML')
 # ====================================================================================
 
@@ -377,7 +379,7 @@ def praca_checker():
                         client2 = gspread.authorize(creds2)
                         used = client2.open('growing').worksheet('main')
                         used.insert_row([i], 1)
-                    used_array.insert(i, 0)
+                    used_array.insert(0, i)
                     poster(idJobi, praca_quest(i, 'Jobi'))
                     sleep(3)
 
