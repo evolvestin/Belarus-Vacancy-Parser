@@ -321,22 +321,13 @@ def callbacks(call):
                 bot.send_document(idMe, doc, caption=doc_text, parse_mode='HTML')
                 doc.close()
             text = call.message.text + code('\n✅ опубликован ✅')
-            try:
-                bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
-                                      reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
-                bot.answer_callback_query(call.id, text='')
-            except:
-                bot.answer_callback_query(call.id, text='Что-то пошло не так')
+            bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
+                                  reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
 
         elif call.data == 'viewed':
             text = call.message.text + code('\n👀 просмотрен 👀')
-            try:
-                bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
-                                      reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
-                bot.answer_callback_query(call.id, text='')
-            except:
-                bot.answer_callback_query(call.id, text='Что-то пошло не так')
-
+            bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
+                                  reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
     except IndexError and Exception:
         executive(callbacks, str(call))
 
