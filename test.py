@@ -7,10 +7,12 @@ import telebot
 import requests
 import geocoder
 import traceback
+import unicodedata
 from time import sleep
 from telebot import types
 from bs4 import BeautifulSoup
 from datetime import datetime
+from unidecode import unidecode
 from collections import defaultdict
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -54,8 +56,8 @@ number_list = {
 }
 idMe = 396978030
 idAndre = 470292601
-idMain = -1001404073893
 keyboard.add(*buttons)
+idMain = -1001404073893
 idJobi = -1001272631426
 # =================================================================
 
@@ -77,19 +79,38 @@ def printer(printer_text):
     print(log_print_text)
 
 
+def send_json(raw, name, doc_text):
+    json_text = ''
+    for character in raw:
+        replaced = unidecode(str(character))
+        if replaced != '':
+            json_text += replaced
+        else:
+            try:
+                json_text += '[' + unicodedata.name(character) + ']'
+            except ValueError:
+                json_text += '[???]'
+    docw = open(name + '.json', 'w')
+    docw.write(json_text)
+    docw.close()
+    doc = open(name + '.json', 'rb')
+    bot.send_document(idMe, doc, caption=doc_text, parse_mode='HTML')
+    doc.close()
+
+
 def executive(new, logs):
     search = re.search('<function (\S+)', str(new))
     if search:
         name = search.group(1)
     else:
-        name = ''
+        name = 'None'
     exc_type, exc_value, exc_traceback = sys.exc_info()
     error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    error = ''
+    error = 'Вылет ' + name + '\n'
     for i in error_raw:
         error += str(i)
-    bot.send_message(idMe, 'Вылет ' + name + '\n' + error)
     if logs == 0:
+        bot.send_message(idMe, error)
         sleep(100)
         thread_id = _thread.start_new_thread(new, ())
         thread_array[thread_id] = defaultdict(dict)
@@ -99,22 +120,7 @@ def executive(new, logs):
         sleep(30)
         _thread.exit()
     else:
-        text = ''
-        for character in logs:
-            replaced = unidecode(str(character))
-            if replaced != '':
-                text += replaced
-            else:
-                try:
-                    text += '[' + unicodedata.name(character) + ']'
-                except ValueError:
-                    text += '[???]'
-        docw = open(name + '.json', 'w')
-        docw.write(text)
-        docw.close()
-        doc = open(name + '.json', 'rb')
-        bot.send_document(idMe, doc)
-        doc.close()
+        send_json(logs, name, error)
 
 
 def logtime(stamp):
@@ -279,13 +285,13 @@ def praca_quest(link, kind):
 
     if kind == 'MainChannel':
         keys = None
-        if growing['geo'] != 'none':
+        if growing['geo'].lower() != 'none':
             text += '\n📍 <a href="http://maps.yandex.ru/?text=' + growing['geo'] + '">На карте</a>\n'
         text += '\n🔎 <a href="' + pub_link + '">Источник</a>\n'
     else:
         keys = keyboard
         text += code('-------------------\n')
-        if growing['geo'] != 'none':
+        if growing['geo'].lower() != 'none':
             text += '📍http://maps.yandex.ru/?text=' + growing['geo'] + '\n'
         text += '🔎' + pub_link + '🔎'
     return [text, keys]
@@ -302,27 +308,11 @@ def callbacks(call):
             search = re.search('🔎(.*?)🔎', call.message.text)
             if search:
                 poster(idMain, praca_quest(search.group(1), 'MainChannel'))
+                text = call.message.text + code('\n✅ опубликован ✅')
+                bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
+                                      reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
             else:
-                doc_text = code('Не нашел в посте ссылку на вакансию')
-                json_text = ''
-                for character in logs:
-                    replaced = unidecode(str(character))
-                    if replaced != '':
-                        json_text += replaced
-                    else:
-                        try:
-                            json_text += '[' + unicodedata.name(character) + ']'
-                        except ValueError:
-                            json_text += '[???]'
-                docw = open(name + '.json', 'w')
-                docw.write(json_text)
-                docw.close()
-                doc = open(name + '.json', 'rb')
-                bot.send_document(idMe, doc, caption=doc_text, parse_mode='HTML')
-                doc.close()
-            text = call.message.text + code('\n✅ опубликован ✅')
-            bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
-                                  reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
+                send_json(call.message.text, 'callbacks', code('Не нашел в посте ссылку на вакансию'))
 
         elif call.data == 'viewed':
             text = call.message.text + code('\n👀 просмотрен 👀')
@@ -338,6 +328,10 @@ def repeat_all_messages(message):
         if message.chat.id == idMe or message.chat.id == idAndre:
             if message.text.startswith('https://praca.by/vacancy/') and message.text.endswith('/'):
                 poster(message.chat.id, praca_quest(message.text, 'Private'))
+            elif message.text.startswith('/base'):
+                doc = open('log.txt', 'rt')
+                bot.send_document(message.chat.id, doc)
+                doc.close()
             else:
                 bot.send_message(message.chat.id, bold('ссылка не подошла, пошел нахуй'), parse_mode='HTML')
     except IndexError and Exception:
@@ -373,7 +367,6 @@ def praca_checker():
                     used_array.insert(0, i)
                     poster(idJobi, praca_quest(i, 'Jobi'))
                     sleep(3)
-
         except IndexError and Exception:
             executive(praca_checker, 0)
 
