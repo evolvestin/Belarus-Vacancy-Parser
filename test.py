@@ -454,7 +454,7 @@ def praca_checker():
                         used.insert_row([i], 1)
                     used_array.insert(0, i)
                     post = praca_quest(i)
-                    poster(idMain, former(post[1], 'Jobi', post[0]))
+                    poster(idJobi, former(post[1], 'Jobi', post[0]))
                     printer(i + ' сделано')
                     sleep(3)
         except IndexError and Exception:
@@ -488,8 +488,8 @@ def tut_checker():
                         used = client2.open('growing').worksheet('main')
                         used.insert_row([i], 1)
                     used_array.insert(0, i)
-                    post = praca_quest(i)
-                    poster(idMain, former(post[1], 'Jobi_tut', post[0]))
+                    post = tut_quest(i)
+                    poster(idJobi, former(post[1], 'Jobi_tut', post[0]))
                     printer(i + ' сделано')
                     sleep(3)
         except IndexError and Exception:
