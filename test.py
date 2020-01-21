@@ -33,8 +33,8 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/5
 idMe = 396978030
 idAndre = 470292601
 keyboard.add(*buttons)
-idMain = idMe#-1001404073893
-idJobi = idMe#-1001272631426
+idMain = -1001404073893
+idJobi = -1001272631426
 # =================================================================
 
 
@@ -536,7 +536,7 @@ def telepol():
 
 
 if __name__ == '__main__':
-    gain = []#[tut_checker, praca_checker]
+    gain = [tut_checker, praca_checker]
     thread_array = defaultdict(dict)
     for i in gain:
         thread_id = _thread.start_new_thread(i, ())
