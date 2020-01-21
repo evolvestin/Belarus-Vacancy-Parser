@@ -33,8 +33,8 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/5
 idMe = 396978030
 idAndre = 470292601
 keyboard.add(*buttons)
-idMain = -1001404073893
-idJobi = -1001272631426
+idMain = tkn.idMain
+idJobi = tkn.idJobi
 # =================================================================
 
 
@@ -53,13 +53,14 @@ def italic(txt):
 def printer(printer_text):
     thread_name = str(thread_array[_thread.get_ident()]['name'])
     logfile = open('log.txt', 'a')
-    log_print_text = thread_name + ' ' + printer_text
+    log_print_text = thread_name + ' [' + str(_thread.get_ident()) + '] ' + printer_text
     logfile.write('\n' + re.sub('<.*?>', '', logtime(0)) + log_print_text)
     logfile.close()
     print(log_print_text)
 
 
-def send_json(raw, name, doc_text):
+def send_json(raw, name, error):
+    caption = ''
     json_text = ''
     for character in raw:
         replaced = unidecode(str(character))
@@ -74,7 +75,11 @@ def send_json(raw, name, doc_text):
     docw.write(json_text)
     docw.close()
     doc = open(name + '.json', 'rb')
-    bot.send_document(idMe, doc, caption=doc_text, parse_mode='HTML')
+    if len(error) <= 1000:
+        caption = error
+    bot.send_document(idMe, doc, caption=caption, parse_mode='HTML')
+    if len(error) > 1000:
+        bot.send_message(idMe, error, parse_mode='HTML')
     doc.close()
 
 
@@ -259,7 +264,7 @@ def tut_quest(pub_link):
             headline = re.sub('\s+', ' ', title.find('h1').get_text())
             growing['title'] = headline
             headline = re.sub('\(.*?\)|[.,/]|г\.', '', headline.lower())
-            headline = re.sub('e-mail', 'email', headline)
+            headline = re.sub('e-mail', 'email', re.sub('\s+', ' ', headline))
             headline = re.sub('[\s-]', '_', headline.strip().capitalize())
             for i in re.split('(_)', headline):
                 if len(tag) <= 20:
@@ -457,36 +462,41 @@ def repeat_all_messages(message):
         executive(repeat_all_messages, str(message))
 
 
+def checker(adress, main_sep, link_sep, quest):
+    global used
+    global creds2
+    global client2
+    global used_array
+    sleep(3)
+    text = requests.get(adress, headers=headers)
+    soup = BeautifulSoup(text.text, 'html.parser')
+    posts_raw = soup.find_all('div', class_=main_sep)
+    posts = []
+    for i in posts_raw:
+        link = i.find('a', class_=link_sep)
+        if link is not None:
+            posts.append(link.get('href'))
+    for i in posts:
+        if i not in used_array:
+            try:
+                used.insert_row([i], 1)
+            except:
+                creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
+                client2 = gspread.authorize(creds2)
+                used = client2.open('growing').worksheet('main')
+                used.insert_row([i], 1)
+            used_array.insert(0, i)
+            post = quest(i)
+            poster(idJobi, former(post[1], 'Jobi', post[0]))
+            printer(i + ' сделано')
+            sleep(3)
+
+
 def praca_checker():
     while True:
         try:
-            global used
-            global creds2
-            global client2
-            global used_array
-            sleep(3)
-            text = requests.get('https://praca.by/search/vacancies/')
-            soup = BeautifulSoup(text.text, 'html.parser')
-            posts_raw = soup.find_all('div', class_='vac-small__column vac-small__column_2')
-            posts = []
-            for i in posts_raw:
-                link = i.find('a', class_='vac-small__title-link')
-                if link is not None:
-                    posts.append(link.get('href'))
-            for i in posts:
-                if i not in used_array:
-                    try:
-                        used.insert_row([i], 1)
-                    except:
-                        creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-                        client2 = gspread.authorize(creds2)
-                        used = client2.open('growing').worksheet('main')
-                        used.insert_row([i], 1)
-                    used_array.insert(0, i)
-                    post = praca_quest(i)
-                    poster(idJobi, former(post[1], 'Jobi', post[0]))
-                    printer(i + ' сделано')
-                    sleep(3)
+            checker('https://praca.by/search/vacancies/', 'vac-small__column vac-small__column_2',
+                    'vac-small__title-link', praca_quest)
         except IndexError and Exception:
             executive(praca_checker, 0)
 
@@ -494,36 +504,11 @@ def praca_checker():
 def tut_checker():
     while True:
         try:
-            global used
-            global creds2
-            global client2
-            global used_array
-            sleep(3)
-            text = requests.get('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
-                                'currency_code=BYR&enable_snippets=true&only_with_salary=true', headers=headers)
-            soup = BeautifulSoup(text.text, 'html.parser')
-            posts_raw = soup.find_all('div', class_='vacancy-serp-item')
-            posts = []
-            for i in posts_raw:
-                link = i.find('a', class_='bloko-link')
-                if link is not None:
-                    posts.append(link.get('href'))
-            for i in posts:
-                if i not in used_array:
-                    try:
-                        used.insert_row([i], 1)
-                    except:
-                        creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-                        client2 = gspread.authorize(creds2)
-                        used = client2.open('growing').worksheet('main')
-                        used.insert_row([i], 1)
-                    used_array.insert(0, i)
-                    post = tut_quest(i)
-                    poster(idJobi, former(post[1], 'Jobi_tut', post[0]))
-                    printer(i + ' сделано')
-                    sleep(3)
+            checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
+                    'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
+                    'bloko-link', tut_quest)
         except IndexError and Exception:
-            executive(praca_checker, 0)
+            executive(tut_checker, 0)
 
 
 def telepol():
@@ -536,12 +521,19 @@ def telepol():
 
 
 if __name__ == '__main__':
-    gain = [tut_checker, praca_checker]
+    gain = []
+    if tkn.floater == 1:
+        gain = [tut_checker, praca_checker]
+    elif tkn.idMain == idMe:
+        gain = []  # [tut_checker, praca_checker]
     thread_array = defaultdict(dict)
     for i in gain:
-        thread_id = _thread.start_new_thread(i, ())
+        print(i)
+        thread_id = _thread.start_new_thread(i(15), ())
+        print(thread_id)
         thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(i))
         thread_array[thread_id] = defaultdict(dict)
         thread_array[thread_id]['name'] = thread_start_name[0]
         thread_array[thread_id]['function'] = i
+    print(thread_array)
     telepol()
