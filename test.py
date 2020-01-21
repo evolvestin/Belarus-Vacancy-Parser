@@ -26,8 +26,8 @@ used_array = used.col_values(1)
 keyboard = types.InlineKeyboardMarkup(row_width=2)
 buttons = [types.InlineKeyboardButton(text='✅', callback_data='post'),
            types.InlineKeyboardButton(text='👀', callback_data='viewed')]
-starting = ['title', 'place', 'geo', 'money', 'org_name', 'schedule', 'employment', 'short_place',
-            'experience', 'education', 'contact', 'numbers', 'email', 'metro']
+starting = ['title', 'place', 'tags', 'geo', 'money', 'org_name', 'schedule', 'employment',
+            'short_place', 'experience', 'education', 'contact', 'numbers', 'email', 'metro']
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36'
                          ' (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 idMe = 396978030
@@ -44,6 +44,10 @@ def bold(txt):
 
 def code(txt):
     return '<code>' + txt + '</code>'
+
+
+def italic(txt):
+    return '<i>' + txt + '</i>'
 
 
 def printer(printer_text):
@@ -163,6 +167,15 @@ def praca_quest(link):
     if short_place is not None:
         growing['short_place'] = re.sub('\s+', ' ', short_place.get_text().strip())
 
+    tag_list = soup.find('div', class_='categories')
+    if tag_list is not None:
+        tags = tag_list.find_all('a')
+        tag_array = []
+        for i in tags:
+            tag = re.sub('[\s-]', '_', i.get_text())
+            tag_array.append(re.sub('_/_', ' #', tag))
+        growing['tags'] = tag_array
+
     if growing['place'] != growing['short_place'] and growing['place'] != 'none':
         geo = geocoder.osm(growing['place'])
         if geo is not None:
@@ -242,14 +255,25 @@ def tut_quest(pub_link):
     title = soup.find('div', class_='vacancy-title')
     if title is not None:
         if title.find('h1') is not None:
-            growing['title'] = title.find('h1').get_text().strip()
+            tag = ''
+            headline = re.sub('\s+', ' ', title.find('h1').get_text())
+            growing['title'] = headline
+            headline = re.sub('\(.*?\)|[.,/]|г\.', '', headline.lower())
+            headline = re.sub('e-mail', 'email', headline)
+            headline = re.sub('[\s-]', '_', headline.strip().capitalize())
+            for i in re.split('(_)', headline):
+                if len(tag) <= 20:
+                    tag += i
+            if tag.endswith('_'):
+                tag = tag[:-1]
+            growing['tags'] = [tag]
 
     place = soup.find('div', class_='vacancy-address-text')
     if place is not None:
         metro = ''
         metro_array = place.find_all('span', class_='metro-station')
         for i in metro_array:
-            metro += re.sub('\s+', ' ', i.get_text().capitalize().strip() + ', ')
+            metro += re.sub('\s+', ' ', i.get_text().strip() + ', ')
         if metro != '':
             growing['metro'] = metro[:-2]
         growing['place'] = re.sub(metro, '', re.sub('\s+', ' ', place.get_text()).strip())
@@ -370,7 +394,14 @@ def former(growing, kind, pub_link):
         text += code('-------------------\n')
         if growing['geo'].lower() != 'none':
             text += '📍http://maps.yandex.ru/?text=' + growing['geo'] + '\n'
-        text += '🔎' + pub_link + '🔎'
+        text += '🔎' + pub_link + '🔎\n'
+        text += code('-------------------\n')
+
+    if growing['tags'] != 'none':
+        text += italic('\n💼ТЕГИ: ')
+        for i in growing['tags']:
+            text += '#' + i + ' '
+        text = text[:-1] + '\n'
     return [text, keys]
 
 
@@ -434,7 +465,6 @@ def praca_checker():
             global client2
             global used_array
             sleep(3)
-            printer('работаю')
             text = requests.get('https://praca.by/search/vacancies/')
             soup = BeautifulSoup(text.text, 'html.parser')
             posts_raw = soup.find_all('div', class_='vac-small__column vac-small__column_2')
