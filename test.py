@@ -525,15 +525,12 @@ if __name__ == '__main__':
     if tkn.floater == 1:
         gain = [tut_checker, praca_checker]
     elif tkn.idMain == idMe:
-        gain = []  # [tut_checker, praca_checker]
+        gain = [tut_checker, praca_checker]
     thread_array = defaultdict(dict)
     for i in gain:
-        print(i)
-        thread_id = _thread.start_new_thread(i(15), ())
-        print(thread_id)
+        thread_id = _thread.start_new_thread(i, ())
         thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(i))
         thread_array[thread_id] = defaultdict(dict)
         thread_array[thread_id]['name'] = thread_start_name[0]
         thread_array[thread_id]['function'] = i
-    print(thread_array)
     telepol()
