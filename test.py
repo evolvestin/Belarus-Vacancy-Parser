@@ -413,14 +413,14 @@ def former(growing, kind, pub_link):
         text += code('-------------------\n')
 
     if growing['tags'] != 'none':
-        if growing['place'] != 'none' and growing['money'] != 'none' and \
-                growing['numbers'] != 'none' and growing['title'] != 'none':
-            text += italic('\n💼ТЕГИ: ')
-            for i in growing['tags']:
-                text += '#' + i + ' '
-            text = text[:-1] + '\n'
-        else:
-            text = pub_link
+        text += italic('\n💼ТЕГИ: ')
+        for i in growing['tags']:
+            text += '#' + i + ' '
+        text = text[:-1] + '\n'
+
+    if growing['place'] == 'none' or growing['money'] == 'none' or growing['numbers'] == 'none' or \
+            growing['title'] == 'none':
+        text = pub_link
     return [text, keys]
 
 
