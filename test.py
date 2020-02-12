@@ -60,27 +60,39 @@ def printer(printer_text):
 
 
 def send_json(raw, name, error):
-    caption = ''
     json_text = ''
-    for character in raw:
-        replaced = unidecode(str(character))
-        if replaced != '':
-            json_text += replaced
-        else:
-            try:
-                json_text += '[' + unicodedata.name(character) + ']'
-            except ValueError:
-                json_text += '[???]'
-    docw = open(name + '.json', 'w')
-    docw.write(json_text)
-    docw.close()
-    doc = open(name + '.json', 'rb')
+    if type(raw) is str:
+        for character in raw:
+            replaced = unidecode(str(character))
+            if replaced != '':
+                json_text += replaced
+            else:
+                try:
+                    json_text += '[' + unicodedata.name(character) + ']'
+                except ValueError:
+                    json_text += '[???]'
     if len(error) <= 1000:
-        caption = error
-    bot.send_document(idMe, doc, caption=caption, parse_mode='HTML')
-    if len(error) > 1000:
-        bot.send_message(idMe, error, parse_mode='HTML')
-    doc.close()
+        if json_text != '':
+            docw = open(name + '.json', 'w')
+            docw.write(json_text)
+            docw.close()
+            doc = open(name + '.json', 'rb')
+            bot.send_document(idMe, doc, caption=error)
+            doc.close()
+        else:
+            bot.send_message(idMe, error, parse_mode='HTML')
+    if len(error) > 1000 and len(error) <= 4000:
+        bot.send_message(idMe, error)
+    if len(error) > 4000:
+        separator = 4000
+        splited_sep = len(error) // separator
+        splited_mod = len(error) / separator - len(error) // separator
+        if splited_mod != 0:
+            splited_sep += 1
+        for i in range(0, splited_sep):
+            splited_error = error[i * separator:(i + 1) * separator]
+            if len(splited_error) > 0:
+                bot.send_message(idMe, splited_error, parse_mode='HTML')
 
 
 def executive(new, logs):
@@ -93,9 +105,9 @@ def executive(new, logs):
     error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
     error = 'Вылет ' + name + '\n'
     for i in error_raw:
-        error += str(i)
+        error += re.sub('<', '&#60;', str(i))
+    send_json(logs, name, error)
     if logs == 0:
-        bot.send_message(idMe, error)
         sleep(100)
         thread_id = _thread.start_new_thread(new, ())
         thread_array[thread_id] = defaultdict(dict)
@@ -104,8 +116,6 @@ def executive(new, logs):
         bot.send_message(idMe, 'Запущен ' + bold(name), parse_mode='HTML')
         sleep(30)
         _thread.exit()
-    else:
-        send_json(logs, name, error)
 
 
 def logtime(stamp):
@@ -403,15 +413,30 @@ def former(growing, kind, pub_link):
         text += code('-------------------\n')
 
     if growing['tags'] != 'none':
-        text += italic('\n💼ТЕГИ: ')
-        for i in growing['tags']:
-            text += '#' + i + ' '
-        text = text[:-1] + '\n'
+        if growing['place'] != 'none' and growing['money'] != 'none' and \
+                growing['numbers'] != 'none' and growing['title'] != 'none':
+            text += italic('\n💼ТЕГИ: ')
+            for i in growing['tags']:
+                text += '#' + i + ' '
+            text = text[:-1] + '\n'
+        else:
+            text = pub_link
     return [text, keys]
 
 
-def poster(id_forward, array):
-    bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML', disable_web_page_preview=True)
+def poster(id_forward, array, pub_link):
+    if array[0] is not None:
+        if array[0] != pub_link:
+            bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML', disable_web_page_preview=False)
+        else:
+            bot.send_message(idMe, 'Что-то пошло не так:\n' + pub_link, parse_mode='HTML',
+                             disable_web_page_preview=False)
+    else:
+        if id_forward != idMain:
+            send = id_forward
+        else:
+            send = idMe
+        bot.send_message(send, 'Что-то пошло не так:\n' + pub_link, parse_mode='HTML', disable_web_page_preview=False)
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -425,7 +450,7 @@ def callbacks(call):
                     post = tut_quest(search.group(1))
                 else:
                     post = praca_quest(search.group(1))
-                poster(idMain, former(post[1], 'MainChannel', post[0]))
+                poster(idMain, former(post[1], 'MainChannel', post[0]), post[0])
                 text = call.message.text + code('\n✅ опубликован ✅')
                 bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
                                       reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
@@ -451,7 +476,7 @@ def repeat_all_messages(message):
                     post = tut_quest(message.text)
                 else:
                     post = praca_quest(message.text)
-                poster(message.chat.id, former(post[1], 'Private', post[0]))
+                poster(message.chat.id, former(post[1], 'Private', post[0]), post[0])
             elif message.text.startswith('/base'):
                 doc = open('log.txt', 'rt')
                 bot.send_document(message.chat.id, doc)
@@ -487,7 +512,7 @@ def checker(adress, main_sep, link_sep, quest):
                 used.insert_row([i], 1)
             used_array.insert(0, i)
             post = quest(i)
-            poster(idJobi, former(post[1], 'Jobi', post[0]))
+            poster(idMain, former(post[1], 'MainChannel', post[0]), post[0])
             printer(i + ' сделано')
             sleep(3)
 
