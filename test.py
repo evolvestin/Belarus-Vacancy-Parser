@@ -418,7 +418,7 @@ def former(growing, kind, pub_link):
             text += '#' + i + ' '
         text = text[:-1] + '\n'
 
-    if growing['place'] == 'none' or growing['money'] == 'none' or growing['numbers'] == 'none' or \
+    if growing['short_place'] == 'none' or growing['money'] == 'none' or growing['numbers'] == 'none' or \
             growing['title'] == 'none':
         text = pub_link
     return [text, keys]
