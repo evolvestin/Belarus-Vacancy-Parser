@@ -427,7 +427,12 @@ def former(growing, kind, pub_link):
 def poster(id_forward, array, pub_link):
     if array[0] is not None:
         if array[0] != pub_link:
-            bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML', disable_web_page_preview=True)
+            notify = None
+            hours = int(datetime.utcfromtimestamp(int(datetime.now().timestamp() + 3 * 60 * 60)).strftime('%H'))
+            if hours > 21 and hours < 8:
+                notify = True
+            bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML',
+                             disable_web_page_preview=True, disable_notification=notify)
         else:
             bot.send_message(idMe, 'Что-то пошло не так:\n' + pub_link, parse_mode='HTML',
                              disable_web_page_preview=False)
