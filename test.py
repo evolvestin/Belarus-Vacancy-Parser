@@ -221,7 +221,7 @@ def height_indent(row_text, font_size):
 
 
 def image(image_text):
-    img = Image.open('praca2.jpg')
+    img = Image.open('logo.jpg')
     draw = ImageDraw.Draw(img)
     left = 50
     if width(image_text, 100) <= original_width:
