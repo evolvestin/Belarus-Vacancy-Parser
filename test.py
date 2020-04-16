@@ -176,7 +176,7 @@ start = re.sub('(<b>|</b>|<code>|</code>|</div>)', '', start)
 start_search = re.search('<br/>d: (.*) :d', start)
 
 if start_search:
-    last_date = stamper(start_search.group(1))
+    last_date = stamper(start_search.group(1)) - 3 * 60 * 60
     start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0), parse_mode='HTML')
 else:
     last_date = '\nОшибка с нахождением номера поста. ' + bold('Бот выключен')
@@ -186,10 +186,12 @@ else:
 
 
 def timer(stack):
-    day = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%d')
-    month = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%m')
-    years = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%Y')
-    hours = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%H')
+    if stack == 0:
+        stack = int(datetime.now().timestamp())
+    day = datetime.utcfromtimestamp(int(stack)).strftime('%d')
+    month = datetime.utcfromtimestamp(int(stack)).strftime('%m')
+    years = datetime.utcfromtimestamp(int(stack)).strftime('%Y')
+    hours = datetime.utcfromtimestamp(int(stack)).strftime('%H')
     minutes = datetime.utcfromtimestamp(int(stack)).strftime('%M')
     seconds = datetime.utcfromtimestamp(int(stack)).strftime('%S')
     text = str(day) + '/' + str(month) + '/' + str(years) + ' ' + str(hours) + ':' + str(minutes) + ':' + str(seconds)
@@ -563,14 +565,15 @@ def former(growing, kind, pub_link):
 
 
 def poster(id_forward, array):
+    global last_date
     if array[0] != array[2]:
         message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
         if id_forward == idMain:
-            global last_date
             if last_date < message.date:
+                print('message.date = ' + str(timer(message.date)))
                 last_date = message.date
                 start_editing = code('Последний пост на канале jobsrb\n') + \
-                    bold('d: ') + code(timer(last_date)) + bold(' :d')
+                    bold('d: ') + code(timer(last_date + 3 * 60 * 60)) + bold(' :d')
                 try:
                     bot.edit_message_text(start_editing, -1001471643258, tkn.start_link, parse_mode='HTML')
                 except:
@@ -644,17 +647,19 @@ def checker(address, main_sep, link_sep, quest):
     global used_array
     global unused_box
     sleep(3)
-    time_now = int(datetime.now().timestamp()) + 3 * 60 * 60
+    time_now = stamper(timer(0))
     text = requests.get(address, headers=headers)
     soup = BeautifulSoup(text.text, 'html.parser')
     posts_raw = soup.find_all('div', class_=main_sep)
+    print('last_date = ' + str(timer(last_date + 30 * 60)))
+    print('now = ' + str(timer(0)))
     posts = []
     for i in posts_raw:
         link = i.find('a', class_=link_sep)
         if link is not None:
             posts.append(link.get('href'))
     for i in posts:
-        if i not in used_array:
+        if i not in used_array and i not in unused_box:
             if (last_date + 30 * 60) < time_now:
                 try:
                     used.insert_row([i], 1)
@@ -666,6 +671,8 @@ def checker(address, main_sep, link_sep, quest):
                 used_array.insert(0, i)
                 post = quest(i)
                 poster(idMain, former(post[1], 'MainChannel', post[0]))
+                print('last_date = ' + str(timer(last_date + 30 * 60)))
+                print('now = ' + str(timer(0)))
                 printer(i + ' сделано')
                 sleep(3)
             else:
@@ -684,9 +691,6 @@ def praca_checker():
 def tut_checker():
     while True:
         try:
-            print(last_date + 30 * 60)
-            print(int(datetime.now().timestamp()) + 3 * 60 * 60)
-            print(unused_box)
             checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
@@ -706,9 +710,9 @@ def telepol():
 if __name__ == '__main__':
     gain = []
     if tkn.floater == 1:
-        gain = [tut_checker]
-    elif tkn.idMain == idMe:
         gain = [tut_checker, praca_checker]
+    elif tkn.idMain == idMe:
+        gain = [tut_checker]
     thread_array = defaultdict(dict)
     for i in gain:
         thread_id = _thread.start_new_thread(i, ())
