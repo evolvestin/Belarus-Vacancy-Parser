@@ -1,19 +1,22 @@
 import re
 import sys
 import tkn
+import time
 import _thread
 import gspread
 import telebot
 import requests
-import geocoder
+import calendar
 import traceback
 import unicodedata
 from time import sleep
 from telebot import types
+from telegraph import upload
 from bs4 import BeautifulSoup
 from datetime import datetime
 from unidecode import unidecode
 from collections import defaultdict
+from PIL import Image, ImageFont, ImageDraw
 from oauth2client.service_account import ServiceAccountCredentials
 
 stamp1 = int(datetime.now().timestamp())
@@ -26,28 +29,42 @@ used_array = used.col_values(1)
 keyboard = types.InlineKeyboardMarkup(row_width=2)
 buttons = [types.InlineKeyboardButton(text='✅', callback_data='post'),
            types.InlineKeyboardButton(text='👀', callback_data='viewed')]
-starting = ['title', 'place', 'tags', 'geo', 'money', 'org_name', 'schedule', 'employment',
-            'short_place', 'experience', 'education', 'contact', 'numbers', 'email', 'metro']
+starting = ['title', 'place', 'tags', 'geo', 'money', 'org_name', 'schedule', 'employment', 'short_place',
+            'experience', 'education', 'contact', 'numbers', 'description', 'email', 'metro', 'tag_picture']
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36'
                          ' (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
+
+unused_box = []
 idMe = 396978030
+color = (0, 0, 0)
 idAndre = 470292601
-keyboard.add(*buttons)
 idMain = tkn.idMain
 idJobi = tkn.idJobi
+original_width = 1100
+original_height = 310
+keyboard.add(*buttons)
 # =================================================================
 
 
 def bold(txt):
-    return '<b>' + txt + '</b>'
+    return '<b>' + str(txt) + '</b>'
 
 
 def code(txt):
-    return '<code>' + txt + '</code>'
+    return '<code>' + str(txt) + '</code>'
 
 
 def italic(txt):
-    return '<i>' + txt + '</i>'
+    return '<i>' + str(txt) + '</i>'
+
+
+def under(txt):
+    return '<u>' + str(txt) + '</u>'
+
+
+def stamper(date):
+    stack = int(calendar.timegm(time.strptime(date, '%d/%m/%Y %H:%M:%S')))
+    return stack
 
 
 def printer(printer_text):
@@ -147,13 +164,105 @@ def logtime(stamp):
     return data
 
 
+bot = telebot.TeleBot(tkn.tkn)
 logfile_start = open('log.txt', 'w')
 logfile_start.write('Начало записи лога ' + re.sub('<.*?>', '', logtime(0)))
 logfile_start.close()
-# bot = telebot.TeleBot('993071212:AAFbZvEx8IJaL1_8fWNDs4qdAJHNMKTnS7U')
-bot = telebot.TeleBot(tkn.tkn)
-start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0), parse_mode='HTML')
+
+start_text = requests.get('https://t.me/UsefullCWLinks/' + str(tkn.start_link) + '?embed=1')
+start = BeautifulSoup(start_text.text, 'html.parser')
+start = str(start.find('div', class_='tgme_widget_message_text js-message_text'))
+start = re.sub('(<b>|</b>|<code>|</code>|</div>)', '', start)
+start_search = re.search('<br/>d: (.*) :d', start)
+
+if start_search:
+    last_date = stamper(start_search.group(1))
+    start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0), parse_mode='HTML')
+else:
+    last_date = '\nОшибка с нахождением номера поста. ' + bold('Бот выключен')
+    start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0) + last_date, parse_mode='HTML')
+    _thread.exit()
 # ====================================================================================
+
+
+def timer(stack):
+    day = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%d')
+    month = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%m')
+    years = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%Y')
+    hours = datetime.utcfromtimestamp(int(stack + 3 * 60 * 60)).strftime('%H')
+    minutes = datetime.utcfromtimestamp(int(stack)).strftime('%M')
+    seconds = datetime.utcfromtimestamp(int(stack)).strftime('%S')
+    text = str(day) + '/' + str(month) + '/' + str(years) + ' ' + str(hours) + ':' + str(minutes) + ':' + str(seconds)
+    return text
+
+
+def font(font_size):
+    return ImageFont.truetype('RobotoCondensed-Bold.ttf', font_size)
+
+
+def width(row_text, font_size):
+    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
+    text_width = size[0][0]
+    return text_width
+
+
+def height(row_text, font_size):
+    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
+    text_height = size[0][1]
+    return text_height
+
+
+def height_indent(row_text, font_size):
+    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
+    text_height = size[1][1]
+    return text_height
+
+
+def image(image_text):
+    img = Image.open('praca2.jpg')
+    draw = ImageDraw.Draw(img)
+    left = 50
+    if width(image_text, 100) <= original_width:
+        more_font = 200
+        while width(image_text, more_font) > original_width:
+            more_font -= 1
+        left += (original_width - width(image_text, more_font)) // 2
+        top = 200 - height_indent(image_text, more_font)
+        top += (original_height - height(image_text, more_font)) // 2
+        draw.text((left, top), image_text, color, font(more_font))
+    else:
+        layer = 1
+        drop_text = ''
+        layer_array = []
+        full_height = 0
+        temp_text_array = re.sub('\s+', ' ', image_text.strip()).split(' ')
+        for i in range(0, len(temp_text_array)):
+            if width(temp_text_array[i], 100) <= original_width:
+                if width((drop_text + ' ' + temp_text_array[i]).strip(), 100) <= original_width:
+                    drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
+                else:
+                    if drop_text != '' and len(layer_array) < 3:
+                        layer_array.append(drop_text)
+                        full_height += height(drop_text, 100)
+                    drop_text = ''
+                    drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
+                if i == len(temp_text_array) - 1:
+                    if drop_text != '' and len(layer_array) < 3:
+                        layer_array.append(drop_text)
+                        full_height += height(drop_text, 100)
+        additional_height = 0
+        indent_height = int(full_height / len(layer_array) + 0.15 * (full_height / len(layer_array)))
+        mod = int((original_height - len(layer_array) * indent_height) / 2)
+        for i in layer_array:
+            text_position = (left + (original_width - width(i, 100)) // 2, 200 + mod + additional_height)
+            additional_height += indent_height
+            draw.text(text_position, i, color, font(100))
+            layer += 1
+    img.save('bot_edited.jpg')
+    doc = open('bot_edited.jpg', 'rb')
+    uploaded = upload.upload_file(doc)
+    uploaded_link = '<a href="https://telegra.ph' + uploaded[0] + '">​​</a>️'
+    return uploaded_link
 
 
 def praca_quest(link):
@@ -191,10 +300,9 @@ def praca_quest(link):
             tag_array.append(re.sub('_/_', ' #', tag))
         growing['tags'] = tag_array
 
-    if growing['place'] != growing['short_place'] and growing['place'] != 'none':
-        geo = geocoder.osm(growing['place'])
-        if geo is not None:
-            growing['geo'] = re.sub('[\[\]\s]', '', str(geo.latlng))
+    geo_search = re.search('{"latitude":"(.*?)","longitude":"(.*?)","zoom"', str(soup))
+    if geo_search:
+        growing['geo'] = re.sub('\s', '', geo_search.group(1)) + ',' + re.sub('\s', '', geo_search.group(2))
 
     metro = soup.find('div', class_='vacancy__metro')
     if metro is not None:
@@ -308,10 +416,9 @@ def tut_quest(pub_link):
                 if short_place is not None:
                     growing['short_place'] = re.sub('\s+', ' ', short_place.get_text().capitalize().strip())
 
-    if growing['place'] != growing['short_place'] and growing['place'] != 'none':
-        geo = geocoder.osm(growing['place'])
-        if geo is not None:
-            growing['geo'] = re.sub('[\[\]\s]', '', str(geo.latlng))
+    geo_search = re.search('{"lat": (.*?), "lng": (.*?), "zoom"', str(soup))
+    if geo_search:
+        growing['geo'] = re.sub('\s', '', geo_search.group(1)) + ',' + re.sub('\s', '', geo_search.group(2))
 
     money = soup.find('p', class_='vacancy-salary')
     if money is not None:
@@ -325,11 +432,41 @@ def tut_quest(pub_link):
         elif search_ot:
             money_array.append(search_ot.group(1))
             money_array.append('more')
+        else:
+            money_array = 'none'
         growing['money'] = money_array
 
-    org_name = soup.find('a', class_='vacancy-company-name')
+    org_name = soup.find('a', {'data-qa': 'vacancy-company-name'})
     if org_name is not None:
         growing['org_name'] = re.sub('\s+', ' ', org_name.get_text().strip())
+
+    description = soup.find('div', class_='g-user-content')
+    if description is not None:
+        description = description.find_all(['p', 'ul', 'strong'])
+        tempering = []
+        main = ''
+        prev = ''
+        for i in description:
+            text = ''
+            lists = i.find_all('li')
+            if len(lists) != 0:
+                for g in lists:
+                    text += '🔹 ' + re.sub('\n', '', g.get_text().capitalize()) + '\n'
+            else:
+                temp = i.get_text().strip()
+                if prev != temp:
+                    if temp.endswith(':'):
+                        text += '\n✅ ' + bold(temp) + '\n'
+                    else:
+                        tempering.append(temp)
+                prev = temp
+            main += text
+        main = main[:-1]
+        if len(tempering) > 0:
+            main += '\n\n'
+        for i in tempering:
+            main += i + '\n'
+        growing['description'] = main
 
     numbers = ''
     items = soup.find_all(['p', 'a', 'span'])
@@ -369,13 +506,14 @@ def tut_quest(pub_link):
 def former(growing, kind, pub_link):
     text = ''
     if growing['title'] != 'none':
-        text += '👨🏻‍💻 ' + bold(growing['title']) + '\n'
+        text_to_image = re.sub('<', '&#60;', growing['title'])
+        text_to_image = re.sub('/', ' / ', text_to_image)
+        text_to_image = re.sub('\(.*?\)|[.,]|г\.', '', text_to_image)
+        text_to_image = re.sub('e-mail', 'email', re.sub('\s+', ' ', text_to_image))
+        growing['tag_picture'] = image(re.sub('[\s-]', ' ', text_to_image.strip()))
+        text = growing['tag_picture'] + '👨🏻‍💻 ' + bold(growing['title']) + '\n'
     if growing['short_place'] != 'none':
         text += '🏙 ' + growing['short_place'] + '\n'
-    if growing['schedule'] != 'none':
-        text += '📈 График ➡ ' + growing['schedule'].capitalize() + '\n'
-    if growing['employment'] != 'none':
-        text += '⏰ Занятость ➡ ' + growing['employment'].capitalize() + '\n'
     if growing['experience'] != 'none':
         text += '🏅 Опыт работы ➡ ' + growing['experience'].capitalize() + '\n'
     if growing['education'] != 'none':
@@ -415,33 +553,38 @@ def former(growing, kind, pub_link):
     if growing['tags'] != 'none':
         text += italic('\n💼ТЕГИ: ')
         for i in growing['tags']:
-            text += '#' + i + ' '
+            text += '#' + re.sub('_+', '_', i) + ' '
         text = text[:-1] + '\n'
 
-    if growing['short_place'] == 'none' or growing['money'] == 'none' or growing['numbers'] == 'none' or \
-            growing['title'] == 'none':
+    if growing['short_place'] == 'none' or growing['money'] == 'none' or growing['title'] == 'none':
         text = pub_link
-    return [text, keys]
+
+    return [text, keys, pub_link, growing]
 
 
-def poster(id_forward, array, pub_link):
-    if array[0] is not None:
-        if array[0] != pub_link:
-            notify = None
-            hours = int(datetime.utcfromtimestamp(int(datetime.now().timestamp() + 3 * 60 * 60)).strftime('%H'))
-            if hours > 21 and hours < 8:
-                notify = True
-            bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML',
-                             disable_web_page_preview=True, disable_notification=notify)
-        else:
-            bot.send_message(idMe, 'Что-то пошло не так:\n' + pub_link, parse_mode='HTML',
-                             disable_web_page_preview=False)
+def poster(id_forward, array):
+    if array[0] != array[2]:
+        message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
+        if id_forward == idMain:
+            global last_date
+            if last_date < message.date:
+                last_date = message.date
+                start_editing = code('Последний пост на канале jobsrb\n') + \
+                    bold('d: ') + code(timer(last_date)) + bold(' :d')
+                try:
+                    bot.edit_message_text(start_editing, -1001471643258, tkn.start_link, parse_mode='HTML')
+                except:
+                    error = '<b>Проблемы с измением стартового ' \
+                            'сообщения на канале @UsefullCWLinks</b>\n\n' + start_editing
+                    bot.send_message(idMe, error, parse_mode='HTML', disable_web_page_preview=True)
     else:
-        if id_forward != idMain:
-            send = id_forward
-        else:
-            send = idMe
-        bot.send_message(send, 'Что-то пошло не так:\n' + pub_link, parse_mode='HTML', disable_web_page_preview=False)
+        text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + under(bold('link')) + ': ' + array[2] + '\n'
+        for i in array[3]:
+            if i == 'short_place' or i == 'money' or i == 'title':
+                text += under(bold(i)) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
+            elif i != 'description':
+                text += str(i) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
+        bot.send_message(idMe, text + '}', parse_mode='HTML')
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -455,7 +598,7 @@ def callbacks(call):
                     post = tut_quest(search.group(1))
                 else:
                     post = praca_quest(search.group(1))
-                poster(idMain, former(post[1], 'MainChannel', post[0]), post[0])
+                poster(idMain, former(post[1], 'MainChannel', post[0]))
                 text = call.message.text + code('\n✅ опубликован ✅')
                 bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
                                       reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
@@ -474,14 +617,16 @@ def callbacks(call):
 def repeat_all_messages(message):
     try:
         if message.chat.id == idMe or message.chat.id == idAndre:
-            if (message.text.startswith('https://praca.by/vacancy/') and message.text.endswith('/')) or \
-                    (message.text.startswith('https://jobs.tut.by/vacancy/') and message.text.endswith('/')):
+            if message.text.startswith('https://praca.by/vacancy/') or message.text.startswith('https://'):
                 site_search = re.search('tut\.by|hh\.ru', message.text)
                 if site_search:
                     post = tut_quest(message.text)
                 else:
                     post = praca_quest(message.text)
-                poster(message.chat.id, former(post[1], 'Private', post[0]), post[0])
+                poster(message.chat.id, former(post[1], 'Private', post[0]))
+            elif message.text.startswith('/pic'):
+                subbed = re.sub('/pic', '', message.text).strip()
+                bot.send_message(message.chat.id, image(subbed), parse_mode='HTML')
             elif message.text.startswith('/base'):
                 doc = open('log.txt', 'rt')
                 bot.send_document(message.chat.id, doc)
@@ -492,13 +637,15 @@ def repeat_all_messages(message):
         executive(repeat_all_messages, str(message))
 
 
-def checker(adress, main_sep, link_sep, quest):
+def checker(address, main_sep, link_sep, quest):
     global used
     global creds2
     global client2
     global used_array
+    global unused_box
     sleep(3)
-    text = requests.get(adress, headers=headers)
+    time_now = int(datetime.now().timestamp()) + 3 * 60 * 60
+    text = requests.get(address, headers=headers)
     soup = BeautifulSoup(text.text, 'html.parser')
     posts_raw = soup.find_all('div', class_=main_sep)
     posts = []
@@ -508,18 +655,21 @@ def checker(adress, main_sep, link_sep, quest):
             posts.append(link.get('href'))
     for i in posts:
         if i not in used_array:
-            try:
-                used.insert_row([i], 1)
-            except:
-                creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-                client2 = gspread.authorize(creds2)
-                used = client2.open('growing').worksheet('main')
-                used.insert_row([i], 1)
-            used_array.insert(0, i)
-            post = quest(i)
-            poster(idMain, former(post[1], 'MainChannel', post[0]), post[0])
-            printer(i + ' сделано')
-            sleep(3)
+            if (last_date + 30 * 60) < time_now:
+                try:
+                    used.insert_row([i], 1)
+                except:
+                    creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
+                    client2 = gspread.authorize(creds2)
+                    used = client2.open('growing').worksheet('main')
+                    used.insert_row([i], 1)
+                used_array.insert(0, i)
+                post = quest(i)
+                poster(idMain, former(post[1], 'MainChannel', post[0]))
+                printer(i + ' сделано')
+                sleep(3)
+            else:
+                unused_box.append(i)
 
 
 def praca_checker():
@@ -534,6 +684,9 @@ def praca_checker():
 def tut_checker():
     while True:
         try:
+            print(last_date + 30 * 60)
+            print(int(datetime.now().timestamp()) + 3 * 60 * 60)
+            print(unused_box)
             checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
@@ -553,7 +706,7 @@ def telepol():
 if __name__ == '__main__':
     gain = []
     if tkn.floater == 1:
-        gain = [tut_checker, praca_checker]
+        gain = [tut_checker]
     elif tkn.idMain == idMe:
         gain = [tut_checker, praca_checker]
     thread_array = defaultdict(dict)
