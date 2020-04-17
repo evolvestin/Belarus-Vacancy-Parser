@@ -198,6 +198,11 @@ def timer(stack):
     return text
 
 
+def hour():
+    stack = int(datetime.now().timestamp())
+    return int(datetime.utcfromtimestamp(int(stack) + 3 * 60 * 60).strftime('%H'))
+
+
 def font(font_size):
     return ImageFont.truetype('RobotoCondensed-Bold.ttf', font_size)
 
@@ -383,7 +388,8 @@ def tut_quest(pub_link):
             tag = ''
             headline = re.sub('\s+', ' ', title.find('h1').get_text())
             growing['title'] = headline
-            headline = re.sub('\(.*?\)|[.,/]|г\.', '', headline.lower())
+            headline = re.sub('/', ' / ', headline)
+            headline = re.sub('\(.*?\)|[+.,/]|г\.', '', headline.lower())
             headline = re.sub('e-mail', 'email', re.sub('\s+', ' ', headline))
             headline = re.sub('[\s-]', '_', headline.strip().capitalize())
             for i in re.split('(_)', headline):
@@ -510,7 +516,7 @@ def former(growing, kind, pub_link):
     if growing['title'] != 'none':
         text_to_image = re.sub('<', '&#60;', growing['title'])
         text_to_image = re.sub('/', ' / ', text_to_image)
-        text_to_image = re.sub('\(.*?\)|[.,]|г\.', '', text_to_image)
+        text_to_image = re.sub('\(.*?\)|[+.,]|г\.', '', text_to_image)
         text_to_image = re.sub('e-mail', 'email', re.sub('\s+', ' ', text_to_image))
         growing['tag_picture'] = image(re.sub('[\s-]', ' ', text_to_image.strip()))
         text = growing['tag_picture'] + '👨🏻‍💻 ' + bold(growing['title']) + '\n'
@@ -561,6 +567,11 @@ def former(growing, kind, pub_link):
     if growing['short_place'] == 'none' or growing['money'] == 'none' or growing['title'] == 'none':
         text = pub_link
 
+    if growing['title'] != 'none':
+        search_restricted = re.search('водитель|яндекс|такси', growing['title'].lower())
+        if search_restricted:
+            text = pub_link
+
     return [text, keys, pub_link, growing]
 
 
@@ -570,7 +581,6 @@ def poster(id_forward, array):
         message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
         if id_forward == idMain:
             if last_date < message.date:
-                print('message.date = ' + str(timer(message.date)))
                 last_date = message.date
                 start_editing = code('Последний пост на канале jobsrb\n') + \
                     bold('d: ') + code(timer(last_date + 3 * 60 * 60)) + bold(' :d')
@@ -640,10 +650,20 @@ def repeat_all_messages(message):
         executive(repeat_all_messages, str(message))
 
 
-def checker(address, main_sep, link_sep, quest):
+def googler(link):
     global used
     global creds2
     global client2
+    try:
+        used.insert_row([link], 1)
+    except:
+        creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
+        client2 = gspread.authorize(creds2)
+        used = client2.open('growing').worksheet('main')
+        used.insert_row([link], 1)
+
+
+def checker(address, main_sep, link_sep, quest):
     global used_array
     global unused_box
     sleep(3)
@@ -651,28 +671,18 @@ def checker(address, main_sep, link_sep, quest):
     text = requests.get(address, headers=headers)
     soup = BeautifulSoup(text.text, 'html.parser')
     posts_raw = soup.find_all('div', class_=main_sep)
-    print('last_date = ' + str(timer(last_date + 30 * 60)))
-    print('now = ' + str(timer(0)))
     posts = []
     for i in posts_raw:
         link = i.find('a', class_=link_sep)
         if link is not None:
             posts.append(link.get('href'))
     for i in posts:
-        if i not in used_array and i not in unused_box:
+        if i not in used_array and i not in unused_box and (9 <= hour() <= 21):
             if (last_date + 30 * 60) < time_now:
-                try:
-                    used.insert_row([i], 1)
-                except:
-                    creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-                    client2 = gspread.authorize(creds2)
-                    used = client2.open('growing').worksheet('main')
-                    used.insert_row([i], 1)
+                googler(i)
                 used_array.insert(0, i)
                 post = quest(i)
                 poster(idMain, former(post[1], 'MainChannel', post[0]))
-                print('last_date = ' + str(timer(last_date + 30 * 60)))
-                print('now = ' + str(timer(0)))
                 printer(i + ' сделано')
                 sleep(3)
             else:
@@ -694,6 +704,22 @@ def tut_checker():
             checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
+            if len(unused_box) > 0 and (9 <= hour() <= 21):
+                global unused_box
+                if (last_date + 32 * 60) < stamper(timer(0)):
+                    site_search = re.search('tut\.by|hh\.ru', unused_box[0])
+                    if site_search:
+                        post = tut_quest(unused_box[0])
+                    else:
+                        post = praca_quest(unused_box[0])
+                    googler(unused_box[0])
+                    poster(idMain, former(post[1], 'MainChannel', post[0]))
+                    printer(unused_box[0] + ' сделано')
+                    unused_box.pop(0)
+                    sleep(3)
+                else:
+                    unused_box.append(i)
+
         except IndexError and Exception:
             executive(tut_checker, 0)
 
