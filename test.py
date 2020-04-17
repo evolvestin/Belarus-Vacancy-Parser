@@ -701,11 +701,11 @@ def praca_checker():
 def tut_checker():
     while True:
         try:
+            global unused_box
             checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
             if len(unused_box) > 0 and (9 <= hour() <= 21):
-                global unused_box
                 if (last_date + 32 * 60) < stamper(timer(0)):
                     site_search = re.search('tut\.by|hh\.ru', unused_box[0])
                     if site_search:
