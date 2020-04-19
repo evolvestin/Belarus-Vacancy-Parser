@@ -677,8 +677,8 @@ def checker(address, main_sep, link_sep, quest):
         if link is not None:
             posts.append(link.get('href'))
     for i in posts:
-        if i not in used_array and i not in unused_box and (9 <= hour() < 21):
-            if (last_date + 30 * 60) < time_now:
+        if i not in used_array and i not in unused_box and (10 <= hour() < 21):
+            if (last_date + 60 * 60) < time_now:
                 googler(i)
                 used_array.insert(0, i)
                 post = quest(i)
@@ -705,8 +705,8 @@ def tut_checker():
             checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
-            if len(unused_box) > 0 and (9 <= hour() < 21):
-                if (last_date + 32 * 60) < stamper(timer(0)):
+            if len(unused_box) > 0 and (10 <= hour() < 21):
+                if (last_date + 62 * 60) < stamper(timer(0)):
                     site_search = re.search('tut\.by|hh\.ru', unused_box[0])
                     if site_search:
                         post = tut_quest(unused_box[0])
