@@ -33,6 +33,19 @@ starting = ['title', 'place', 'tags', 'geo', 'money', 'org_name', 'schedule', 'e
             'experience', 'education', 'contact', 'numbers', 'description', 'email', 'metro', 'tag_picture']
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36'
                          ' (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
+emoji_list = '([💻🏙🏅🎓💸📔🚇💼🔋])'
+emoji = {
+    '💻': Image.open('emoji/comp.png'),
+    '🏙': Image.open('emoji/city.png'),
+    '🏅': Image.open('emoji/star.png'),
+    '🎓': Image.open('emoji/edu.png'),
+    '💸': Image.open('emoji/money.png'),
+    '📔': Image.open('emoji/note.png'),
+    '🚇': Image.open('emoji/metro.png'),
+    '💼': Image.open('emoji/case.png'),
+    '➡': Image.open('emoji/arrow.png'),
+    '🔋': Image.open('emoji/empty.png')
+}
 
 unused_box = []
 idMe = 396978030
@@ -40,8 +53,7 @@ color = (0, 0, 0)
 idAndre = 470292601
 idMain = tkn.idMain
 idJobi = tkn.idJobi
-original_width = 1100
-original_height = 310
+idInstagram = tkn.idInstagram
 keyboard.add(*buttons)
 # =================================================================
 
@@ -98,7 +110,7 @@ def send_json(raw, name, error):
             doc.close()
         else:
             bot.send_message(idMe, error, parse_mode='HTML')
-    if len(error) > 1000 and len(error) <= 4000:
+    if 1000 < len(error) <= 4000:
         bot.send_message(idMe, error)
     if len(error) > 4000:
         separator = 4000
@@ -115,22 +127,20 @@ def send_json(raw, name, error):
 def executive(new, logs):
     search = re.search('<function (\S+)', str(new))
     if search:
-        name = search.group(1)
+        function_name = search.group(1)
     else:
-        name = 'None'
+        function_name = 'None'
     exc_type, exc_value, exc_traceback = sys.exc_info()
     error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    error = 'Вылет ' + name + '\n'
+    error = 'Вылет ' + function_name + '\n'
     for i in error_raw:
         error += re.sub('<', '&#60;', str(i))
-    send_json(logs, name, error)
+    send_json(logs, function_name, error)
     if logs == 0:
         sleep(100)
-        thread_id = _thread.start_new_thread(new, ())
-        thread_array[thread_id] = defaultdict(dict)
-        thread_array[thread_id]['name'] = name
-        thread_array[thread_id]['function'] = new
-        bot.send_message(idMe, 'Запущен ' + bold(name), parse_mode='HTML')
+        thread_index = _thread.start_new_thread(new, ())
+        thread_array[thread_index] = defaultdict(dict)
+        bot.send_message(idMe, 'Запущен ' + bold(function_name), parse_mode='HTML')
         sleep(30)
         _thread.exit()
 
@@ -203,40 +213,108 @@ def hour():
     return int(datetime.utcfromtimestamp(int(stack) + 3 * 60 * 60).strftime('%H'))
 
 
-def font(font_size):
-    return ImageFont.truetype('RobotoCondensed-Bold.ttf', font_size)
+def fonts(font_weight, font_size):
+    if font_weight == 'regular':
+        return ImageFont.truetype('fonts/Roboto-Regular.ttf', font_size)
+    elif font_weight == 'bold':
+        return ImageFont.truetype('fonts/Roboto-Bold.ttf', font_size)
+    else:
+        return ImageFont.truetype('fonts/RobotoCondensed-Bold.ttf', font_size)
 
 
-def width(row_text, font_size):
-    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
+def height_indent(row_text, font_weight, font_size):
+    size = ImageFont.ImageFont.getsize(fonts(font_weight, font_size), row_text)
+    text_height = size[1][1]
+    return text_height
+
+
+def width(emoji_parameter, row_text, font_weight, font_size):
+    family = fonts(font_weight, font_size)
+    if emoji_parameter:
+        for f in emoji_parameter:
+            if f in ['💻', '💸', '📔', '🔋']:
+                family = fonts('bold', font_size)
+    size = ImageFont.ImageFont.getsize(family, row_text)
     text_width = size[0][0]
     return text_width
 
 
-def height(row_text, font_size):
-    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
+def height(emoji_parameter, row_text, font_weight, font_size):
+    family = fonts(font_weight, font_size)
+    if emoji_parameter:
+        for f in emoji_parameter:
+            if f in ['💻', '💸', '📔', '🔋']:
+                family = fonts('bold', font_size)
+    size = ImageFont.ImageFont.getsize(family, row_text)
     text_height = size[0][1]
     return text_height
 
 
-def height_indent(row_text, font_size):
-    size = ImageFont.ImageFont.getsize(font(font_size), row_text)
-    text_height = size[1][1]
-    return text_height
+def search_emoji(text):
+    search = re.search(emoji_list, text)
+    if search:
+        array = [[search.group(1)]]
+    else:
+        array = [False]
+    if '➡' in text:
+        if array[0]:
+            array[0].append('➡')
+        else:
+            array[0] = ['➡']
+    array.append(re.sub(emoji_list, '', text))
+    return array
+
+
+def instagram_former(growing):
+    for i in growing:
+        if str(type(growing.get(i))) == "<class 'str'>":
+            growing[i] = re.sub('➡', '—', growing.get(i))
+    array = []
+    if growing['title'] != 'none':
+        array.append('💻' + growing['title'])
+    if growing['place'] != 'none':
+        array.append('🏙' + growing['place'])
+    if growing['experience'] != 'none':
+        array.append('🏅Опыт работы ➡ ' + growing['experience'])
+    if growing['education'] != 'none':
+        array.append('🎓Образование ➡ ' + growing['education'])
+    if growing['money'] != 'none':
+        more = ''
+        if growing['money'][1] != 'none':
+            more += '+'
+        array.append('💸З/П ' + growing['money'][0] + more + ' руб.')
+    array.append(' ')
+    array.append('📔Контакты')
+    if growing['org_name'] != 'none':
+        array.append(growing['org_name'])
+    if growing['contact'] != 'none':
+        array.append(growing['contact'])
+    if growing['numbers'] != 'none':
+        numbers = growing['numbers'].split('\n')
+        array.append(numbers[0])
+    if growing['email'] != 'none':
+        array.append(growing['email'] + ' ➡ Резюме')
+    if growing['email'] == 'none' and growing['numbers'] == 'none':
+        array.append('🔋Источник в нашем telegram канале ➡ Ссылка в профиле')
+    if growing['metro'] != 'none':
+        array.append('🚇' + growing['metro'])
+    return array
 
 
 def image(image_text):
     img = Image.open('logo.jpg')
     draw = ImageDraw.Draw(img)
+    original_width = 1100
+    original_height = 310
     left = 50
-    if width(image_text, 100) <= original_width:
+    if width(None, image_text, 'condensed', 100) <= original_width:
         more_font = 200
-        while width(image_text, more_font) > original_width:
+        while width(None, image_text, 'condensed', more_font) > original_width:
             more_font -= 1
-        left += (original_width - width(image_text, more_font)) // 2
-        top = 200 - height_indent(image_text, more_font)
-        top += (original_height - height(image_text, more_font)) // 2
-        draw.text((left, top), image_text, color, font(more_font))
+        left += (original_width - width(None, image_text, 'condensed', more_font)) // 2
+        top = 200 - height_indent(image_text, 'condensed', more_font)
+        top += (original_height - height(None, image_text, 'condensed', more_font)) // 2
+        draw.text((left, top), image_text, color, fonts('condensed', more_font))
     else:
         layer = 1
         drop_text = ''
@@ -244,32 +322,143 @@ def image(image_text):
         full_height = 0
         temp_text_array = re.sub('\s+', ' ', image_text.strip()).split(' ')
         for i in range(0, len(temp_text_array)):
-            if width(temp_text_array[i], 100) <= original_width:
-                if width((drop_text + ' ' + temp_text_array[i]).strip(), 100) <= original_width:
+            if width(None, temp_text_array[i], 'condensed', 100) <= original_width:
+                if width(None, (drop_text + ' ' + temp_text_array[i]).strip(), 'condensed', 100) <= original_width:
                     drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
                 else:
                     if drop_text != '' and len(layer_array) < 3:
                         layer_array.append(drop_text)
-                        full_height += height(drop_text, 100)
+                        full_height += height(None, drop_text, 'condensed', 100)
                     drop_text = ''
                     drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
                 if i == len(temp_text_array) - 1:
                     if drop_text != '' and len(layer_array) < 3:
                         layer_array.append(drop_text)
-                        full_height += height(drop_text, 100)
+                        full_height += height(None, drop_text, 'condensed', 100)
         additional_height = 0
         indent_height = int(full_height / len(layer_array) + 0.15 * (full_height / len(layer_array)))
         mod = int((original_height - len(layer_array) * indent_height) / 2)
         for i in layer_array:
-            text_position = (left + (original_width - width(i, 100)) // 2, 200 + mod + additional_height)
+            text_position = (left + (original_width - width(None, i, 'condensed', 100)) // 2,
+                             200 + mod + additional_height)
             additional_height += indent_height
-            draw.text(text_position, i, color, font(100))
+            draw.text(text_position, i, color, fonts('condensed', 100))
             layer += 1
     img.save('bot_edited.jpg')
     doc = open('bot_edited.jpg', 'rb')
     uploaded = upload.upload_file(doc)
     uploaded_link = '<a href="https://telegra.ph' + uploaded[0] + '">​​</a>️'
+    doc.close()
     return uploaded_link
+
+
+def instagram_image(text_array):
+    background = Image.new('RGB', (1080, 1080), (254, 230, 68))
+    img = Image.new('RGBA', (1080, 1080), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    original_height = 980
+    original_width = 980
+    layer_array = []
+    more_font = 200
+    height_coefficient = False
+    while height_coefficient is False:
+        while len(layer_array) != len(text_array):
+            for t in text_array:
+                array = search_emoji(t)
+                emoji_factor = 0
+                if array[0]:
+                    emoji_factor += int(more_font + more_font * 0.35) * len(array[0])
+                if width(array[0], array[1], 'regular', more_font) + emoji_factor <= original_width:
+                    layer_array.append(array)
+                else:
+                    temp_text_array = re.sub('\s+', ' ', array[1]).split(' ')
+                    array = [array[0]]
+                    drop_text = ''
+                    for i in range(0, len(temp_text_array)):
+                        if width(array[0], (drop_text + ' ' + temp_text_array[i]).strip(), 'regular', more_font) \
+                                + emoji_factor <= original_width:
+                            drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
+                        else:
+                            if drop_text != '' and len(array) < 3:
+                                array.append(drop_text)
+                            else:
+                                break
+                            drop_text = temp_text_array[i]
+                        if i == len(temp_text_array) - 1:
+                            if drop_text != '' and len(array) < 3:
+                                array.append(drop_text)
+                                layer_array.append(array)
+                            else:
+                                break
+            if len(layer_array) != len(text_array):
+                more_font -= 1
+                layer_array.clear()
+        layer_count = 0
+        additional_height = 0
+        for i in layer_array:
+            layer_count += len(i) - 1
+        indent_height = int(more_font + 0.15 * more_font)
+        if layer_count * indent_height <= original_height:
+            mod = 50 + int((original_height - layer_count * indent_height) / 2)
+            pic = mod + int(0.1 * more_font)
+            previous_arrow_array = None
+            for array in layer_array:
+                for i in array:
+                    if array.index(i) != 0:
+                        left = 0
+                        arrow_split = False
+                        family = fonts('regular', more_font)
+                        if array[0]:
+                            for f in array[0]:
+                                if f in ['💻', '💸', '📔', '🔋']:
+                                    family = fonts('bold', more_font)
+                                if f in ['💻', '🏙', '🏅', '🎓', '💸', '📔', '🚇', '💼', '🔋']:
+                                    left += int(more_font + more_font * 0.35)
+                                    if array.index(i) == 1:
+                                        foreground = emoji[f].resize((more_font, more_font), Image.ANTIALIAS)
+                                        background.paste(foreground, (50, pic + additional_height), foreground)
+                                if f == '➡':
+                                    arrow_split = True
+                        if arrow_split is False:
+                            text_position = (50 + left, mod + additional_height)
+                            draw.text(text_position, i, color, family)
+                        else:
+                            text = i
+                            arrow_indent = 50 + left
+                            arrow_array = i.split('➡')
+                            foreground = emoji['➡'].resize((more_font, more_font), Image.ANTIALIAS)
+                            if len(arrow_array) > 1:
+                                text = arrow_array[1]
+                                previous_arrow_array = arrow_array
+                                text_position = (arrow_indent, mod + additional_height)
+                                arrow_indent += width(array[0], arrow_array[0], 'regular', more_font)
+                                draw.text(text_position, arrow_array[0], color, family)
+                                if text != '':
+                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
+                            if len(arrow_array) == 1 and previous_arrow_array:
+                                if previous_arrow_array[0] == '' and previous_arrow_array[1] == '':
+                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
+                                    previous_arrow_array = None
+                                elif previous_arrow_array[1] == '':
+                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
+                                    arrow_indent += int(more_font * 0.35)
+                                    previous_arrow_array = None
+                                else:
+                                    arrow_indent -= more_font
+                            text_position = (arrow_indent + more_font, mod + additional_height)
+                            draw.text(text_position, text, color, family)
+                        additional_height += indent_height
+            height_coefficient = True
+        else:
+            more_font -= 1
+            layer_array.clear()
+
+    background.paste(img, (0, 0), img)
+    background.save('bot_edited.png')
+    doc = open('bot_edited.png', 'rb')
+    bot.send_photo(idInstagram, doc)
+    doc = open('bot_edited.png', 'rb')
+    bot.send_document(idInstagram, doc)
 
 
 def praca_quest(link):
@@ -514,8 +703,7 @@ def tut_quest(pub_link):
 def former(growing, kind, pub_link):
     text = ''
     if growing['title'] != 'none':
-        text_to_image = re.sub('<', '&#60;', growing['title'])
-        text_to_image = re.sub('/', ' / ', text_to_image)
+        text_to_image = re.sub('/', ' / ', growing['title'])
         text_to_image = re.sub('\(.*?\)|[+.,]|г\.', '', text_to_image)
         text_to_image = re.sub('e-mail', 'email', re.sub('\s+', ' ', text_to_image))
         growing['tag_picture'] = image(re.sub('[\s-]', ' ', text_to_image.strip()))
@@ -589,6 +777,7 @@ def poster(id_forward, array):
     global last_date
     if array[0] != array[2]:
         message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
+        instagram_image(instagram_former(array[3]))
         if id_forward == idMain:
             if last_date < message.date:
                 last_date = message.date
@@ -596,9 +785,9 @@ def poster(id_forward, array):
                     bold('d: ') + code(timer(last_date + 3 * 60 * 60)) + bold(' :d')
                 try:
                     bot.edit_message_text(start_editing, -1001471643258, tkn.start_link, parse_mode='HTML')
-                except:
+                except Exception as e:
                     error = '<b>Проблемы с измением стартового ' \
-                            'сообщения на канале @UsefullCWLinks</b>\n\n' + start_editing
+                            'сообщения на канале @UsefullCWLinks</b>\n\n' + start_editing + '\n' + str(e)
                     bot.send_message(idMe, error, parse_mode='HTML', disable_web_page_preview=True)
     else:
         text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + under(bold('link')) + ': ' + array[2] + '\n'
@@ -666,7 +855,7 @@ def googler(link):
     global client2
     try:
         used.insert_row([link], 1)
-    except:
+    except IndexError and Exception:
         creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
         client2 = gspread.authorize(creds2)
         used = client2.open('growing').worksheet('main')
@@ -727,8 +916,6 @@ def tut_checker():
                     printer(unused_box[0] + ' сделано')
                     unused_box.pop(0)
                     sleep(3)
-                else:
-                    unused_box.append(i)
 
         except IndexError and Exception:
             executive(tut_checker, 0)
@@ -737,7 +924,7 @@ def tut_checker():
 def telepol():
     try:
         bot.polling(none_stop=True, timeout=60)
-    except:
+    except IndexError and Exception:
         bot.stop_polling()
         sleep(1)
         telepol()
@@ -750,10 +937,9 @@ if __name__ == '__main__':
     elif tkn.idMain == idMe:
         gain = [tut_checker]
     thread_array = defaultdict(dict)
-    for i in gain:
-        thread_id = _thread.start_new_thread(i, ())
-        thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(i))
+    for thread_element in gain:
+        thread_id = _thread.start_new_thread(thread_element, ())
+        thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(thread_element))
         thread_array[thread_id] = defaultdict(dict)
         thread_array[thread_id]['name'] = thread_start_name[0]
-        thread_array[thread_id]['function'] = i
     telepol()
