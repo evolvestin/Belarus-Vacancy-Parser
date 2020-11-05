@@ -1,12 +1,11 @@
+import os
 import re
 import sys
-import tkn
-import time
+import objects
 import _thread
 import gspread
-import telebot
+import inspect
 import requests
-import calendar
 import traceback
 import unicodedata
 from time import sleep
@@ -14,16 +13,14 @@ from telebot import types
 from telegraph import upload
 from bs4 import BeautifulSoup
 from datetime import datetime
+from objects import bold, code
 from unidecode import unidecode
 from collections import defaultdict
 from PIL import Image, ImageFont, ImageDraw
-from oauth2client.service_account import ServiceAccountCredentials
 
 stamp1 = int(datetime.now().timestamp())
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-client2 = gspread.authorize(creds2)
-used = client2.open('growing').worksheet('main')
+objects.environmental_files()
+used = gspread.service_account('person2.json').open('growing').worksheet('main')
 used_array = used.col_values(1)
 
 keyboard = types.InlineKeyboardMarkup(row_width=2)
@@ -47,51 +44,22 @@ emoji = {
     '🔋': Image.open('emoji/empty.png')
 }
 
+start_link = 8
 unused_box = []
 idMe = 396978030
 color = (0, 0, 0)
 idAndre = 470292601
-idMain = tkn.idMain
-idJobi = tkn.idJobi
-idInstagram = tkn.idInstagram
+idMain = -1001404073893
+idJobi = -1001272631426
+idInstagram = -1001186786378
 keyboard.add(*buttons)
 # =================================================================
 
 
-def bold(txt):
-    return '<b>' + str(txt) + '</b>'
-
-
-def code(txt):
-    return '<code>' + str(txt) + '</code>'
-
-
-def italic(txt):
-    return '<i>' + str(txt) + '</i>'
-
-
-def under(txt):
-    return '<u>' + str(txt) + '</u>'
-
-
-def stamper(date):
-    stack = int(calendar.timegm(time.strptime(date, '%d/%m/%Y %H:%M:%S')))
-    return stack
-
-
-def printer(printer_text):
-    thread_name = str(thread_array[_thread.get_ident()]['name'])
-    logfile = open('log.txt', 'a')
-    log_print_text = thread_name + ' [' + str(_thread.get_ident()) + '] ' + printer_text
-    logfile.write('\n' + re.sub('<.*?>', '', logtime(0)) + log_print_text)
-    logfile.close()
-    print(log_print_text)
-
-
-def send_json(raw, name, error):
+def send_json(logs, name, error):
     json_text = ''
-    if type(raw) is str:
-        for character in raw:
+    if type(logs) is str:
+        for character in logs:
             replaced = unidecode(str(character))
             if replaced != '':
                 json_text += replaced
@@ -100,112 +68,87 @@ def send_json(raw, name, error):
                     json_text += '[' + unicodedata.name(character) + ']'
                 except ValueError:
                     json_text += '[???]'
-    if len(error) <= 1000:
-        if json_text != '':
-            docw = open(name + '.json', 'w')
-            docw.write(json_text)
-            docw.close()
-            doc = open(name + '.json', 'rb')
-            bot.send_document(idMe, doc, caption=error)
-            doc.close()
-        else:
-            bot.send_message(idMe, error, parse_mode='HTML')
-    if 1000 < len(error) <= 4000:
-        bot.send_message(idMe, error)
-    if len(error) > 4000:
-        separator = 4000
-        splited_sep = len(error) // separator
-        splited_mod = len(error) / separator - len(error) // separator
-        if splited_mod != 0:
-            splited_sep += 1
-        for i in range(0, splited_sep):
-            splited_error = error[i * separator:(i + 1) * separator]
-            if len(splited_error) > 0:
-                bot.send_message(idMe, splited_error, parse_mode='HTML')
+    if json_text:
+        doc = open(name + '.json', 'w')
+        doc.write(json_text)
+        doc.close()
+        caption = None
+        if len(error) <= 1024:
+            caption = error
+        doc = open(name + '.json', 'rb')
+        bot.send_document(idMe, doc, caption=caption, parse_mode='HTML')
+    if (json_text == '' and 0 < len(error) <= 1024) or (1024 < len(error) <= 4096):
+        bot.send_message(idMe, error, parse_mode='HTML')
+    elif len(error) > 4096:
+        separator = 4096
+        split_sep = len(error) // separator
+        split_mod = len(error) / separator - len(error) // separator
+        if split_mod != 0:
+            split_sep += 1
+        for i in range(0, split_sep):
+            split_error = error[i * separator:(i + 1) * separator]
+            if len(split_error) > 0:
+                bot.send_message(idMe, split_error, parse_mode='HTML')
 
 
-def executive(new, logs):
-    search = re.search('<function (\S+)', str(new))
-    if search:
-        function_name = search.group(1)
-    else:
-        function_name = 'None'
+def executive(logs):
+    retry = 100
+    func = None
+    func_locals = []
+    stack = inspect.stack()
+    name = re.sub('[<>]', '', str(stack[-1][3]))
     exc_type, exc_value, exc_traceback = sys.exc_info()
     error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    error = 'Вылет ' + function_name + '\n'
+    full_name = bold(objects.app_name) + '(' + code(objects.host) + ').' + bold(name + '()')
+    objects.printer('Вылет ' + re.sub('<.*?>', '', full_name) + ' ' + re.sub('\n', '', error_raw[-1]))
+    error = 'Вылет ' + full_name + '\n\n'
     for i in error_raw:
-        error += re.sub('<', '&#60;', str(i))
-    send_json(logs, function_name, error)
-    if logs == 0:
-        sleep(100)
-        thread_index = _thread.start_new_thread(new, ())
-        thread_array[thread_index] = defaultdict(dict)
-        bot.send_message(idMe, 'Запущен ' + bold(function_name), parse_mode='HTML')
-        sleep(30)
-        _thread.exit()
+        error += objects.html_secure(i)
+    search_retry = re.search(objects.search_retry_pattern, str(error))
+    search_minor_fails = re.search(objects.search_minor_fails_pattern, str(error))
+    search_major_fails = re.search(objects.search_major_fails_pattern, str(error))
+    if search_retry:
+        retry = int(search_retry.group(1)) + 10
+    if search_minor_fails:
+        logs = None
+        retry = 10
+        error = ''
+    if search_major_fails:
+        logs = None
+        retry = 99
+        error = ''
+
+    if logs is None:
+        caller = inspect.currentframe().f_back.f_back
+        func_name = inspect.getframeinfo(caller)[2]
+        for a in caller.f_locals:
+            if a.startswith('host'):
+                func_locals.append(caller.f_locals.get(a))
+        func = caller.f_locals.get(func_name, caller.f_globals.get(func_name))
+    else:
+        retry = 0
+    send_json(logs, name, error)
+    sleep(retry)
+    if func:
+        try:
+            _thread.start_new_thread(func, (*func_locals,))
+        except IndexError and Exception as error:
+            objects.send_dev_message(full_name + ':\n' + error, code)
+    if retry >= 100:
+        bot.send_message(idMe, 'Запущен ' + name, parse_mode='HTML')
+    _thread.exit()
 
 
-def logtime(stamp):
-    if stamp == 0:
-        stamp = int(datetime.now().timestamp())
-    weekday = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%a')
-    if weekday == 'Mon':
-        weekday = 'Пн'
-    elif weekday == 'Tue':
-        weekday = 'Вт'
-    elif weekday == 'Wed':
-        weekday = 'Ср'
-    elif weekday == 'Thu':
-        weekday = 'Чт'
-    elif weekday == 'Fri':
-        weekday = 'Пт'
-    elif weekday == 'Sat':
-        weekday = 'Сб'
-    elif weekday == 'Sun':
-        weekday = 'Вс'
-    day = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%d')
-    month = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%m')
-    year = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%Y')
-    hours = datetime.utcfromtimestamp(int(stamp + 3 * 60 * 60)).strftime('%H')
-    minutes = datetime.utcfromtimestamp(int(stamp)).strftime('%M')
-    seconds = datetime.utcfromtimestamp(int(stamp)).strftime('%S')
-    data = code(str(weekday) + ' ' + str(day) + '.' + str(month) + '.' + str(year) +
-                ' ' + str(hours) + ':' + str(minutes) + ':' + str(seconds)) + ' '
-    return data
-
-
-bot = telebot.TeleBot(tkn.tkn)
-logfile_start = open('log.txt', 'w')
-logfile_start.write('Начало записи лога ' + re.sub('<.*?>', '', logtime(0)))
-logfile_start.close()
-
-start_text = requests.get('https://t.me/UsefullCWLinks/' + str(tkn.start_link) + '?embed=1')
-start = BeautifulSoup(start_text.text, 'html.parser')
-start = str(start.find('div', class_='tgme_widget_message_text js-message_text'))
-start = re.sub('(<b>|</b>|<code>|</code>|</div>)', '', start)
-start_search = re.search('<br/>d: (.*) :d', start)
-
+bot = objects.start_main_bot('non-async', os.environ['TOKEN'])
+start_search = objects.query('https://t.me/UsefullCWLinks/' + str(start_link) + '?embed=1', 'd: (.*) :d')
 if start_search:
-    last_date = stamper(start_search.group(1)) - 3 * 60 * 60
-    start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0), parse_mode='HTML')
+    last_date = objects.stamper(start_search.group(1)) - 3 * 60 * 60
+    objects.start_message(os.environ['TOKEN'], stamp1)
 else:
     last_date = '\nОшибка с нахождением номера поста. ' + bold('Бот выключен')
-    start_message = bot.send_message(idMe, logtime(stamp1) + '\n' + logtime(0) + last_date, parse_mode='HTML')
+    objects.start_message(os.environ['TOKEN'], stamp1, last_date)
     _thread.exit()
 # ====================================================================================
-
-
-def timer(stack):
-    if stack == 0:
-        stack = int(datetime.now().timestamp())
-    day = datetime.utcfromtimestamp(int(stack)).strftime('%d')
-    month = datetime.utcfromtimestamp(int(stack)).strftime('%m')
-    years = datetime.utcfromtimestamp(int(stack)).strftime('%Y')
-    hours = datetime.utcfromtimestamp(int(stack)).strftime('%H')
-    minutes = datetime.utcfromtimestamp(int(stack)).strftime('%M')
-    seconds = datetime.utcfromtimestamp(int(stack)).strftime('%S')
-    text = str(day) + '/' + str(month) + '/' + str(years) + ' ' + str(hours) + ':' + str(minutes) + ':' + str(seconds)
-    return text
 
 
 def hour():
@@ -320,7 +263,7 @@ def image(image_text):
         drop_text = ''
         layer_array = []
         full_height = 0
-        temp_text_array = re.sub('\s+', ' ', image_text.strip()).split(' ')
+        temp_text_array = re.sub(r'\s+', ' ', image_text.strip()).split(' ')
         for i in range(0, len(temp_text_array)):
             if width(None, temp_text_array[i], 'condensed', 100) <= original_width:
                 if width(None, (drop_text + ' ' + temp_text_array[i]).strip(), 'condensed', 100) <= original_width:
@@ -371,7 +314,7 @@ def instagram_image(text_array):
                 if width(array[0], array[1], 'regular', more_font) + emoji_factor <= original_width:
                     layer_array.append(array)
                 else:
-                    temp_text_array = re.sub('\s+', ' ', array[1]).split(' ')
+                    temp_text_array = re.sub(r'\s+', ' ', array[1]).split(' ')
                     array = [array[0]]
                     drop_text = ''
                     for i in range(0, len(temp_text_array)):
@@ -481,37 +424,37 @@ def praca_quest(link):
 
     place = soup.find('div', class_='job-address')
     if place is not None:
-        growing['place'] = re.sub('\s+', ' ', place.get_text().strip())
+        growing['place'] = re.sub(r'\s+', ' ', place.get_text().strip())
 
     short_place = soup.find('div', class_='vacancy__city')
     if short_place is not None:
-        growing['short_place'] = re.sub('\s+', ' ', short_place.get_text().strip())
+        growing['short_place'] = re.sub(r'\s+', ' ', short_place.get_text().strip())
 
     tag_list = soup.find('div', class_='categories')
     if tag_list is not None:
         tags = tag_list.find_all('a')
         tag_array = []
         for i in tags:
-            tag = re.sub('[\s-]', '_', i.get_text())
+            tag = re.sub(r'[\s-]', '_', i.get_text())
             tag_array.append(re.sub('_/_', ' #', tag))
         growing['tags'] = tag_array
 
     geo_search = re.search('{"latitude":"(.*?)","longitude":"(.*?)","zoom"', str(soup))
     if geo_search:
-        growing['geo'] = re.sub('\s', '', geo_search.group(1)) + ',' + re.sub('\s', '', geo_search.group(2))
+        growing['geo'] = re.sub(r'\s', '', geo_search.group(1)) + ',' + re.sub(r'\s', '', geo_search.group(2))
 
     metro = soup.find('div', class_='vacancy__metro')
     if metro is not None:
         metro_array = metro.find_all('span', class_='nowrap')
         metro = ''
         for i in metro_array:
-            metro += re.sub('\s+', ' ', i.get_text().capitalize().strip() + ', ')
+            metro += re.sub(r'\s+', ' ', i.get_text().capitalize().strip() + ', ')
         growing['metro'] = metro[:-2]
 
     money = soup.find('div', class_='vacancy__salary')
     if money is not None:
-        money = re.sub('\s', '', money.get_text())
-        search_gold = re.search('(\d+)', money)
+        money = re.sub(r'\s', '', money.get_text())
+        search_gold = re.search(r'(\d+)', money)
         search = re.search('ивыше', money)
         money_array = []
         more = 'none'
@@ -524,41 +467,41 @@ def praca_quest(link):
 
     org_name = soup.find('div', class_='org-info__item org-info__name')
     if org_name is not None:
-        growing['org_name'] = re.sub('\s+', ' ', org_name.find('a').get_text().strip())
+        growing['org_name'] = re.sub(r'\s+', ' ', org_name.find('a').get_text().strip())
 
     items = soup.find_all('div', class_='vacancy__item')
     for i in items:
         schedule = i.find('i', class_='pri-schedule')
         if schedule is not None:
             schedule = i.find('div', class_='vacancy__desc').get_text().strip()
-            growing['schedule'] = re.sub('\s+', ' ', schedule)
+            growing['schedule'] = re.sub(r'\s+', ' ', schedule)
 
         employment = i.find('i', class_='pri-employment')
         if employment is not None:
             employment = i.find('div', class_='vacancy__desc').get_text().strip()
-            growing['employment'] = re.sub('\s+', ' ', employment)
+            growing['employment'] = re.sub(r'\s+', ' ', employment)
 
         experience = i.find('p', class_='vacancy__experience')
         if experience is not None:
             experience = re.sub('Опыт работы', '', experience.get_text())
-            growing['experience'] = re.sub('\s+', ' ', experience.strip())
+            growing['experience'] = re.sub(r'\s+', ' ', experience.strip())
 
         education = i.find('p', class_='vacancy__education')
         if education is not None:
             education = re.sub('.бразование', '', education.get_text())
-            growing['education'] = re.sub('\s+', ' ', education.strip())
+            growing['education'] = re.sub(r'\s+', ' ', education.strip())
 
         contact = i.find('div', class_='vacancy__term')
         if contact.get_text() == 'Контактное лицо:':
-            growing['contact'] = re.sub('\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
+            growing['contact'] = re.sub(r'\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
         if contact.get_text() == 'Электронная почта:':
             if i.find('div', class_='vacancy__desc') is not None:
-                growing['email'] = re.sub('\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
+                growing['email'] = re.sub(r'\s+', ' ', i.find('div', class_='vacancy__desc').get_text().strip())
         if contact.get_text() == 'Номера телефонов:':
             number_array = i.find_all('span', class_='nowrap')
             number = ''
             for g in number_array:
-                number += re.sub('\s+', ' ', g.get_text().strip()) + '\n'
+                number += re.sub(r'\s+', ' ', g.get_text().strip()) + '\n'
             growing['numbers'] = number[:-1]
     return [pub_link, growing]
 
@@ -575,12 +518,12 @@ def tut_quest(pub_link):
     if title is not None:
         if title.find('h1') is not None:
             tag = ''
-            headline = re.sub('\s+', ' ', title.find('h1').get_text())
+            headline = re.sub(r'\s+', ' ', title.find('h1').get_text())
             growing['title'] = headline
             headline = re.sub('/', ' / ', headline)
-            headline = re.sub('\(.*?\)|[+.,/]|г\.', '', headline.lower())
-            headline = re.sub('e-mail', 'email', re.sub('\s+', ' ', headline))
-            headline = re.sub('[\s-]', '_', headline.strip().capitalize())
+            headline = re.sub(r'\(.*?\)|[+.,/]|г\.', '', headline.lower())
+            headline = re.sub('e-mail', 'email', re.sub(r'\s+', ' ', headline))
+            headline = re.sub(r'[\s-]', '_', headline.strip().capitalize())
             for i in re.split('(_)', headline):
                 if len(tag) <= 20:
                     tag += i
@@ -593,10 +536,10 @@ def tut_quest(pub_link):
         metro = ''
         metro_array = place.find_all('span', class_='metro-station')
         for i in metro_array:
-            metro += re.sub('\s+', ' ', i.get_text().strip() + ', ')
+            metro += re.sub(r'\s+', ' ', i.get_text().strip() + ', ')
         if metro != '':
             growing['metro'] = metro[:-2]
-        growing['place'] = re.sub(metro, '', re.sub('\s+', ' ', place.get_text()).strip())
+        growing['place'] = re.sub(metro, '', re.sub(r'\s+', ' ', place.get_text()).strip())
 
     short_place = soup.find_all('span')
     if short_place is not None:
@@ -604,25 +547,25 @@ def tut_quest(pub_link):
             if str(i).find('vacancy-view-raw-address') != -1:
                 search = re.search('<!-- -->(.*?)<!-- -->', str(i))
                 if search:
-                    growing['short_place'] = re.sub('\s+', ' ', search.group(1).capitalize().strip())
+                    growing['short_place'] = re.sub(r'\s+', ' ', search.group(1).capitalize().strip())
                     break
         if growing['short_place'] == 'none':
             short_place = soup.find('div', class_='vacancy-company')
             if short_place is not None:
                 short_place = short_place.find('p')
                 if short_place is not None:
-                    growing['short_place'] = re.sub('\s+', ' ', short_place.get_text().capitalize().strip())
+                    growing['short_place'] = re.sub(r'\s+', ' ', short_place.get_text().capitalize().strip())
 
     geo_search = re.search('{"lat": (.*?), "lng": (.*?), "zoom"', str(soup))
     if geo_search:
-        growing['geo'] = re.sub('\s', '', geo_search.group(1)) + ',' + re.sub('\s', '', geo_search.group(2))
+        growing['geo'] = re.sub(r'\s', '', geo_search.group(1)) + ',' + re.sub(r'\s', '', geo_search.group(2))
 
     money = soup.find('p', class_='vacancy-salary')
     if money is not None:
         money_array = []
-        money = re.sub('\s', '', money.get_text().lower())
-        search_ot = re.search('от(\d+)', money)
-        search_do = re.search('до(\d+)', money)
+        money = re.sub(r'\s', '', money.get_text().lower())
+        search_ot = re.search(r'от(\d+)', money)
+        search_do = re.search(r'до(\d+)', money)
         if search_do:
             money_array.append(search_do.group(1))
             money_array.append('none')
@@ -635,7 +578,7 @@ def tut_quest(pub_link):
 
     org_name = soup.find('a', {'data-qa': 'vacancy-company-name'})
     if org_name is not None:
-        growing['org_name'] = re.sub('\s+', ' ', org_name.get_text().strip())
+        growing['org_name'] = re.sub(r'\s+', ' ', org_name.get_text().strip())
 
     description = soup.find('div', class_='g-user-content')
     if description is not None:
@@ -673,28 +616,28 @@ def tut_quest(pub_link):
             schedule_text = ''
             schedule = i.find('span')
             if schedule is not None:
-                schedule_text = re.sub('\s+', ' ', schedule.get_text().strip())
+                schedule_text = re.sub(r'\s+', ' ', schedule.get_text().strip())
                 growing['schedule'] = re.sub('график', '', schedule_text).strip().capitalize()
-            employment = re.sub('\s+', ' ', i.get_text().lower())
+            employment = re.sub(r'\s+', ' ', i.get_text().lower())
             employment = re.sub(',|занятость|' + schedule_text, '', employment).strip().capitalize()
             growing['employment'] = employment
 
         search = re.search('data-qa="vacancy-experience"', str(i))
         if search:
-            growing['experience'] = re.sub('\s+', ' ', i.get_text().strip())
+            growing['experience'] = re.sub(r'\s+', ' ', i.get_text().strip())
 
         search = re.search('data-qa="vacancy-contacts__fio"', str(i))
         if search:
-            growing['contact'] = re.sub('\s+', ' ', i.get_text().strip())
+            growing['contact'] = re.sub(r'\s+', ' ', i.get_text().strip())
 
         search = re.search('data-qa="vacancy-contacts__email"', str(i))
         if search:
-            growing['email'] = re.sub('\s+', ' ', i.get_text().strip())
+            growing['email'] = re.sub(r'\s+', ' ', i.get_text().strip())
 
         search = re.search('data-qa="vacancy-contacts__phone"', str(i))
         if search:
-            if numbers.find(re.sub('\s+', ' ', i.get_text().strip())) == -1:
-                numbers += re.sub('\s+', ' ', i.get_text().strip()) + '\n'
+            if numbers.find(re.sub(r'\s+', ' ', i.get_text().strip())) == -1:
+                numbers += re.sub(r'\s+', ' ', i.get_text().strip()) + '\n'
     if numbers != '':
         growing['numbers'] = numbers[:-1]
     return [pub_link, growing]
@@ -704,9 +647,9 @@ def former(growing, kind, pub_link):
     text = ''
     if growing['title'] != 'none':
         text_to_image = re.sub('/', ' / ', growing['title'])
-        text_to_image = re.sub('\(.*?\)|[+.,]|г\.', '', text_to_image)
-        text_to_image = re.sub('e-mail', 'email', re.sub('\s+', ' ', text_to_image))
-        growing['tag_picture'] = image(re.sub('[\s-]', ' ', text_to_image.strip()))
+        text_to_image = re.sub(r'\(.*?\)|[+.,]|г\.', '', text_to_image)
+        text_to_image = re.sub('e-mail', 'email', re.sub(r'\s+', ' ', text_to_image))
+        growing['tag_picture'] = image(re.sub(r'[\s-]', ' ', text_to_image.strip()))
         text = growing['tag_picture'] + '👨🏻‍💻 ' + bold(growing['title']) + '\n'
     if growing['short_place'] != 'none':
         text += '🏙 ' + growing['short_place'] + '\n'
@@ -747,7 +690,7 @@ def former(growing, kind, pub_link):
         text += code('-------------------\n')
 
     if growing['tags'] != 'none':
-        text += italic('\n💼ТЕГИ: ')
+        text += objects.italic('\n💼ТЕГИ: ')
         for i in growing['tags']:
             text += '#' + re.sub('_+', '_', i) + ' '
         text = text[:-1] + '\n'
@@ -782,18 +725,19 @@ def poster(id_forward, array):
             if last_date < message.date:
                 last_date = message.date
                 start_editing = code('Последний пост на канале jobsrb\n') + \
-                    bold('d: ') + code(timer(last_date + 3 * 60 * 60)) + bold(' :d')
+                    bold('d: ') + objects.log_time(last_date + 3 * 60 * 60, code, form='channel') + bold(' :d')
                 try:
-                    bot.edit_message_text(start_editing, -1001471643258, tkn.start_link, parse_mode='HTML')
+                    bot.edit_message_text(start_editing, -1001471643258, start_link, parse_mode='HTML')
                 except Exception as e:
                     error = '<b>Проблемы с измением стартового ' \
                             'сообщения на канале @UsefullCWLinks</b>\n\n' + start_editing + '\n' + str(e)
                     bot.send_message(idMe, error, parse_mode='HTML', disable_web_page_preview=True)
     else:
-        text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + under(bold('link')) + ': ' + array[2] + '\n'
+        text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + \
+            objects.under(bold('link')) + ': ' + array[2] + '\n'
         for i in array[3]:
             if i == 'short_place' or i == 'money' or i == 'title':
-                text += under(bold(i)) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
+                text += objects.under(bold(i)) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
             elif i != 'description':
                 text += str(i) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
         bot.send_message(idMe, text + '}', parse_mode='HTML')
@@ -805,7 +749,7 @@ def callbacks(call):
         if call.data == 'post':
             search = re.search('🔎(.*?)🔎', call.message.text)
             if search:
-                site_search = re.search('tut\.by|hh\.ru', search.group(1))
+                site_search = re.search(r'tut\.by|hh\.ru', search.group(1))
                 if site_search:
                     post = tut_quest(search.group(1))
                 else:
@@ -822,7 +766,7 @@ def callbacks(call):
             bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
                                   reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
     except IndexError and Exception:
-        executive(callbacks, str(call))
+        executive(str(call))
 
 
 @bot.message_handler(func=lambda message: message.text)
@@ -830,7 +774,7 @@ def repeat_all_messages(message):
     try:
         if message.chat.id == idMe or message.chat.id == idAndre:
             if message.text.startswith('https://praca.by/vacancy/') or message.text.startswith('https://'):
-                site_search = re.search('tut\.by|hh\.ru', message.text)
+                site_search = re.search(r'tut\.by|hh\.ru', message.text)
                 if site_search:
                     post = tut_quest(message.text)
                 else:
@@ -839,26 +783,22 @@ def repeat_all_messages(message):
             elif message.text.startswith('/pic'):
                 subbed = re.sub('/pic', '', message.text).strip()
                 bot.send_message(message.chat.id, image(subbed), parse_mode='HTML')
-            elif message.text.startswith('/base'):
+            elif message.text.startswith('/log'):
                 doc = open('log.txt', 'rt')
                 bot.send_document(message.chat.id, doc)
                 doc.close()
             else:
                 bot.send_message(message.chat.id, bold('ссылка не подошла, пошел нахуй'), parse_mode='HTML')
     except IndexError and Exception:
-        executive(repeat_all_messages, str(message))
+        executive(str(message))
 
 
-def googler(link):
+def google(link):
     global used
-    global creds2
-    global client2
     try:
         used.insert_row([link], 1)
     except IndexError and Exception:
-        creds2 = ServiceAccountCredentials.from_json_keyfile_name('person2.json', scope)
-        client2 = gspread.authorize(creds2)
-        used = client2.open('growing').worksheet('main')
+        used = gspread.service_account('person2.json').open('growing').worksheet('main')
         used.insert_row([link], 1)
 
 
@@ -866,7 +806,7 @@ def checker(address, main_sep, link_sep, quest):
     global used_array
     global unused_box
     sleep(3)
-    time_now = stamper(timer(0))
+    time_now = objects.time_now()
     text = requests.get(address, headers=headers)
     soup = BeautifulSoup(text.text, 'html.parser')
     posts_raw = soup.find_all('div', class_=main_sep)
@@ -878,11 +818,11 @@ def checker(address, main_sep, link_sep, quest):
     for i in posts:
         if i not in used_array and i not in unused_box and (11 <= hour() < 21):
             if (last_date + 120 * 60) < time_now:
-                googler(i)
+                google(i)
                 used_array.insert(0, i)
                 post = quest(i)
                 poster(idMain, former(post[1], 'MainChannel', post[0]))
-                printer(i + ' сделано')
+                objects.printer(i + ' сделано')
                 sleep(3)
             else:
                 unused_box.append(i)
@@ -894,7 +834,7 @@ def praca_checker():
             checker('https://praca.by/search/vacancies/', 'vac-small__column vac-small__column_2',
                     'vac-small__title-link', praca_quest)
         except IndexError and Exception:
-            executive(praca_checker, 0)
+            executive(None)
 
 
 def tut_checker():
@@ -905,41 +845,34 @@ def tut_checker():
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
             if len(unused_box) > 0 and (11 <= hour() < 21):
-                if (last_date + 122 * 60) < stamper(timer(0)):
-                    site_search = re.search('tut\.by|hh\.ru', unused_box[0])
+                if (last_date + 122 * 60) < objects.time_now():
+                    site_search = re.search(r'tut\.by|hh\.ru', unused_box[0])
                     if site_search:
                         post = tut_quest(unused_box[0])
                     else:
                         post = praca_quest(unused_box[0])
-                    googler(unused_box[0])
+                    google(unused_box[0])
                     poster(idMain, former(post[1], 'MainChannel', post[0]))
-                    printer(unused_box[0] + ' сделано')
+                    objects.printer(unused_box[0] + ' сделано')
                     unused_box.pop(0)
                     sleep(3)
 
         except IndexError and Exception:
-            executive(tut_checker, 0)
+            executive(None)
 
 
-def telepol():
+def telegram_polling():
     try:
         bot.polling(none_stop=True, timeout=60)
     except IndexError and Exception:
         bot.stop_polling()
         sleep(1)
-        telepol()
+        telegram_polling()
 
 
 if __name__ == '__main__':
-    gain = []
-    if tkn.floater == 1:
-        gain = [tut_checker, praca_checker]
-    elif tkn.idMain == idMe:
-        gain = [tut_checker]
+    gain = [tut_checker, praca_checker]
     thread_array = defaultdict(dict)
     for thread_element in gain:
-        thread_id = _thread.start_new_thread(thread_element, ())
-        thread_start_name = re.findall('<.+?\s(.+?)\s.*>', str(thread_element))
-        thread_array[thread_id] = defaultdict(dict)
-        thread_array[thread_id]['name'] = thread_start_name[0]
-    telepol()
+        _thread.start_new_thread(thread_element, ())
+    telegram_polling()
