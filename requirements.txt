@@ -1,7 +1,6 @@
 Pillow==7.0.0
-gspread>=3.6.0
+gspread==3.6.0
 requests>=2.18.4
-e-objects>=1.0.7
+e-objects>=1.2.0
 telegraph==1.4.0
-unidecode==1.0.23
 beautifulsoup4==4.8.0

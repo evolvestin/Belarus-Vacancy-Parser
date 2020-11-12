@@ -1,24 +1,20 @@
 import os
 import re
-import sys
 import objects
 import _thread
 import gspread
-import inspect
 import requests
-import traceback
-import unicodedata
 from time import sleep
 from telebot import types
 from telegraph import upload
 from bs4 import BeautifulSoup
 from datetime import datetime
 from objects import bold, code
-from unidecode import unidecode
 from collections import defaultdict
 from PIL import Image, ImageFont, ImageDraw
 
-stamp1 = int(datetime.now().timestamp())
+_thread.exit()
+stamp1 = objects.time_now()
 objects.environmental_files()
 used = gspread.service_account('person2.json').open('growing').worksheet('main')
 used_array = used.col_values(1)
@@ -54,106 +50,23 @@ idJobi = -1001272631426
 idInstagram = -1001186786378
 keyboard.add(*buttons)
 # =================================================================
-
-
-def send_json(logs, name, error):
-    json_text = ''
-    if type(logs) is str:
-        for character in logs:
-            replaced = unidecode(str(character))
-            if replaced != '':
-                json_text += replaced
-            else:
-                try:
-                    json_text += '[' + unicodedata.name(character) + ']'
-                except ValueError:
-                    json_text += '[???]'
-    if json_text:
-        doc = open(name + '.json', 'w')
-        doc.write(json_text)
-        doc.close()
-        caption = None
-        if len(error) <= 1024:
-            caption = error
-        doc = open(name + '.json', 'rb')
-        bot.send_document(idMe, doc, caption=caption, parse_mode='HTML')
-    if (json_text == '' and 0 < len(error) <= 1024) or (1024 < len(error) <= 4096):
-        bot.send_message(idMe, error, parse_mode='HTML')
-    elif len(error) > 4096:
-        separator = 4096
-        split_sep = len(error) // separator
-        split_mod = len(error) / separator - len(error) // separator
-        if split_mod != 0:
-            split_sep += 1
-        for i in range(0, split_sep):
-            split_error = error[i * separator:(i + 1) * separator]
-            if len(split_error) > 0:
-                bot.send_message(idMe, split_error, parse_mode='HTML')
-
-
-def executive(logs):
-    retry = 100
-    func = None
-    func_locals = []
-    stack = inspect.stack()
-    name = re.sub('[<>]', '', str(stack[-1][3]))
-    exc_type, exc_value, exc_traceback = sys.exc_info()
-    error_raw = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    full_name = bold(objects.app_name) + '(' + code(objects.host) + ').' + bold(name + '()')
-    objects.printer('Вылет ' + re.sub('<.*?>', '', full_name) + ' ' + re.sub('\n', '', error_raw[-1]))
-    error = 'Вылет ' + full_name + '\n\n'
-    for i in error_raw:
-        error += objects.html_secure(i)
-    search_retry = re.search(objects.search_retry_pattern, str(error))
-    search_minor_fails = re.search(objects.search_minor_fails_pattern, str(error))
-    search_major_fails = re.search(objects.search_major_fails_pattern, str(error))
-    if search_retry:
-        retry = int(search_retry.group(1)) + 10
-    if search_minor_fails:
-        logs = None
-        retry = 10
-        error = ''
-    if search_major_fails:
-        logs = None
-        retry = 99
-        error = ''
-
-    if logs is None:
-        caller = inspect.currentframe().f_back.f_back
-        func_name = inspect.getframeinfo(caller)[2]
-        for a in caller.f_locals:
-            if a.startswith('host'):
-                func_locals.append(caller.f_locals.get(a))
-        func = caller.f_locals.get(func_name, caller.f_globals.get(func_name))
-    else:
-        retry = 0
-    send_json(logs, name, error)
-    sleep(retry)
-    if func:
-        try:
-            _thread.start_new_thread(func, (*func_locals,))
-        except IndexError and Exception as error:
-            objects.send_dev_message(full_name + ':\n' + error, code)
-    if retry >= 100:
-        bot.send_message(idMe, 'Запущен ' + name, parse_mode='HTML')
-    _thread.exit()
-
-
-bot = objects.start_main_bot('non-async', os.environ['TOKEN'])
 start_search = objects.query('https://t.me/UsefullCWLinks/' + str(start_link) + '?embed=1', 'd: (.*) :d')
+ExceptAuth = objects.AuthCentre(os.environ['TOKEN'], idMe)
+Auth = objects.AuthCentre(os.environ['TOKEN'])
+bot = Auth.start_main_bot('non-async')
+executive = ExceptAuth.thread_exec
 if start_search:
     last_date = objects.stamper(start_search.group(1)) - 3 * 60 * 60
-    objects.start_message(os.environ['TOKEN'], stamp1)
+    Auth.start_message(stamp1)
 else:
     last_date = '\nОшибка с нахождением номера поста. ' + bold('Бот выключен')
-    objects.start_message(os.environ['TOKEN'], stamp1, last_date)
+    Auth.start_message(stamp1, last_date)
     _thread.exit()
 # ====================================================================================
 
 
 def hour():
-    stack = int(datetime.now().timestamp())
-    return int(datetime.utcfromtimestamp(int(stack) + 3 * 60 * 60).strftime('%H'))
+    return int(datetime.utcfromtimestamp(int(objects.time_now()) + 3 * 60 * 60).strftime('%H'))
 
 
 def fonts(font_weight, font_size):
@@ -759,7 +672,7 @@ def callbacks(call):
                 bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
                                       reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
             else:
-                send_json(call.message.text, 'callbacks', code('Не нашел в посте ссылку на вакансию'))
+                ExceptAuth.send_json(call.message.text, 'callbacks', code('Не нашел в посте ссылку на вакансию'))
 
         elif call.data == 'viewed':
             text = call.message.text + code('\n👀 просмотрен 👀')
