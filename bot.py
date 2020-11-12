@@ -13,7 +13,6 @@ from objects import bold, code
 from collections import defaultdict
 from PIL import Image, ImageFont, ImageDraw
 
-_thread.exit()
 stamp1 = objects.time_now()
 objects.environmental_files()
 used = gspread.service_account('person2.json').open('growing').worksheet('main')
