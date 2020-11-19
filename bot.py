@@ -39,27 +39,30 @@ emoji = {
     '🔋': Image.open('emoji/empty.png')
 }
 
-start_link = 8
+start_post = 8
 unused_box = []
 idMe = 396978030
 color = (0, 0, 0)
 idAndre = 470292601
+keyboard.add(*buttons)
 idMain = -1001404073893
 idJobi = -1001272631426
 idInstagram = -1001186786378
-keyboard.add(*buttons)
+start_address = 'https://t.me/UsefullCWLinks/' + str(start_post)
 # =================================================================
-start_search = objects.query('https://t.me/UsefullCWLinks/' + str(start_link) + '?embed=1', 'd: (.*) :d')
+start_search = objects.query(start_address + '?embed=1', 'd: (.*?) :d.block: (.*?) :block')
 ExceptAuth = objects.AuthCentre(os.environ['TOKEN'], idMe)
 Auth = objects.AuthCentre(os.environ['TOKEN'])
 bot = Auth.start_main_bot('non-async')
 executive = ExceptAuth.thread_exec
 if start_search:
     last_date = objects.stamper(start_search.group(1)) - 3 * 60 * 60
+    block = start_search.group(2)
     Auth.start_message(stamp1)
 else:
     last_date = '\nОшибка с нахождением номера поста. ' + bold('Бот выключен')
     Auth.start_message(stamp1, last_date)
+    block = 'False'
     _thread.exit()
 # ====================================================================================
 
@@ -637,13 +640,14 @@ def poster(id_forward, array):
             if last_date < message.date:
                 last_date = message.date
                 start_editing = code('Последний пост на канале jobsrb\n') + \
-                    bold('d: ') + objects.log_time(last_date + 3 * 60 * 60, code, form='channel') + bold(' :d')
+                    bold('d: ') + objects.log_time(last_date + 3 * 60 * 60, code, form='channel') + bold(' :d') + \
+                    bold('\nblock: ') + block + bold(' :block')
                 try:
-                    bot.edit_message_text(start_editing, -1001471643258, start_link, parse_mode='HTML')
-                except Exception as e:
-                    error = '<b>Проблемы с измением стартового ' \
-                            'сообщения на канале @UsefullCWLinks</b>\n\n' + start_editing + '\n' + str(e)
-                    bot.send_message(idMe, error, parse_mode='HTML', disable_web_page_preview=True)
+                    bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
+                except IndexError and Exception as error:
+                    error = bold('Проблемы с изменением стартового сообщения на канале ') + \
+                        start_address + '\n\n' + start_editing + '\n' + str(error)
+                    ExceptAuth.send_dev_message(error, None)
     else:
         text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + \
             objects.under(bold('link')) + ': ' + array[2] + '\n'
@@ -681,6 +685,44 @@ def callbacks(call):
         executive(str(call))
 
 
+@bot.message_handler(commands=['disable', 'enable'])
+def commands(message):
+    global block
+    try:
+        if message.chat.id == idMe or message.chat.id == idAndre:
+            if message.text.startswith('/disable'):
+                new_block = 'True'
+            else:
+                new_block = 'False'
+            if block != new_block:
+                block = new_block
+                start_editing = code('Последний пост на канале jobsrb\n') + \
+                    bold('d: ') + objects.log_time(last_date + 3 * 60 * 60, code, form='channel') + bold(' :d') + \
+                    bold('\nblock: ') + block + bold(' :block')
+                try:
+                    bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
+                    if block == 'True':
+                        text = 'Посты на канале не публикуются'
+                    else:
+                        text = 'Посты на канале публикуются в штатном режиме'
+                    bot.send_message(message.chat.id, 'Установлено новое значение:\n' + bold(text))
+                    ExceptAuth.send_dev_message('block changed, block = ' + block)
+                except IndexError and Exception as error:
+                    error = bold('Проблемы с изменением стартового сообщения на канале ') + \
+                            start_address + '\n\n' + start_editing + '\n' + str(error)
+                    ExceptAuth.send_dev_message(error, None)
+            else:
+                if block == 'True':
+                    text = 'Посты на канале не публикуются'
+                else:
+                    text = 'Посты на канале публикуются в штатном режиме'
+                bot.send_message(message.chat.id, 'Уже установлено данное значение:\n' + bold(text))
+                ExceptAuth.send_dev_message('block not changed, block = ' + block)
+
+    except IndexError and Exception:
+        executive(str(message))
+
+
 @bot.message_handler(func=lambda message: message.text)
 def repeat_all_messages(message):
     try:
@@ -696,11 +738,9 @@ def repeat_all_messages(message):
                 subbed = re.sub('/pic', '', message.text).strip()
                 bot.send_message(message.chat.id, image(subbed), parse_mode='HTML')
             elif message.text.startswith('/log'):
-                doc = open('log.txt', 'rt')
-                bot.send_document(message.chat.id, doc)
-                doc.close()
+                bot.send_document(message.chat.id, open('log.txt', 'r'))
             else:
-                bot.send_message(message.chat.id, bold('ссылка не подошла, пошел нахуй'), parse_mode='HTML')
+                bot.send_message(message.chat.id, bold('ссылка не подошла'), parse_mode='HTML')
     except IndexError and Exception:
         executive(str(message))
 
@@ -729,7 +769,7 @@ def checker(address, main_sep, link_sep, quest):
             posts.append(link.get('href'))
     for i in posts:
         if i not in used_array and i not in unused_box and (11 <= hour() < 21):
-            if (last_date + 120 * 60) < time_now:
+            if (last_date + 120 * 60) < time_now and block != 'True':
                 google(i)
                 used_array.insert(0, i)
                 post = quest(i)
@@ -746,7 +786,7 @@ def praca_checker():
             checker('https://praca.by/search/vacancies/', 'vac-small__column vac-small__column_2',
                     'vac-small__title-link', praca_quest)
         except IndexError and Exception:
-            executive(None)
+            executive()
 
 
 def tut_checker():
@@ -757,7 +797,7 @@ def tut_checker():
                     'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
                     'bloko-link', tut_quest)
             if len(unused_box) > 0 and (11 <= hour() < 21):
-                if (last_date + 122 * 60) < objects.time_now():
+                if (last_date + 122 * 60) < objects.time_now() and block != 'True':
                     site_search = re.search(r'tut\.by|hh\.ru', unused_box[0])
                     if site_search:
                         post = tut_quest(unused_box[0])
@@ -768,9 +808,8 @@ def tut_checker():
                     objects.printer(unused_box[0] + ' сделано')
                     unused_box.pop(0)
                     sleep(3)
-
         except IndexError and Exception:
-            executive(None)
+            executive()
 
 
 def telegram_polling():
