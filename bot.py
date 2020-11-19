@@ -705,8 +705,8 @@ def commands(message):
                         text = 'Посты на канале не публикуются'
                     else:
                         text = 'Посты на канале публикуются в штатном режиме'
-                    bot.send_message(message.chat.id, 'Установлено новое значение:\n' + bold(text))
                     ExceptAuth.send_dev_message('block changed, block = ' + block)
+                    bot.send_message(message.chat.id, 'Установлено новое значение:\n' + bold(text), parse_mode='HTML')
                 except IndexError and Exception as error:
                     error = bold('Проблемы с изменением стартового сообщения на канале ') + \
                             start_address + '\n\n' + start_editing + '\n' + str(error)
@@ -716,8 +716,8 @@ def commands(message):
                     text = 'Посты на канале не публикуются'
                 else:
                     text = 'Посты на канале публикуются в штатном режиме'
-                bot.send_message(message.chat.id, 'Уже установлено данное значение:\n' + bold(text))
                 ExceptAuth.send_dev_message('block not changed, block = ' + block)
+                bot.send_message(message.chat.id, 'Уже установлено данное значение:\n' + bold(text), parse_mode='HTML')
 
     except IndexError and Exception:
         executive(str(message))
