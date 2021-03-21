@@ -47,6 +47,7 @@ idAndre = 470292601
 keyboard.add(*buttons)
 idMain = -1001404073893
 idJobi = -1001272631426
+idTikTok = -1001498374657
 idInstagram = -1001186786378
 start_address = 'https://t.me/UsefullCWLinks/' + str(start_post)
 # =================================================================
@@ -210,9 +211,9 @@ def image(image_text):
     return uploaded_link
 
 
-def instagram_image(text_array):
-    background = Image.new('RGB', (1080, 1080), (254, 230, 68))
-    img = Image.new('RGBA', (1080, 1080), (0, 0, 0, 0))
+def instagram_image(text_array, pic_height, pic_channel):
+    background = Image.new('RGB', (1080, pic_height), (254, 230, 68))
+    img = Image.new('RGBA', (1080, pic_height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     original_height = 980
     original_width = 980
@@ -314,9 +315,9 @@ def instagram_image(text_array):
     background.paste(img, (0, 0), img)
     background.save('bot_edited.png')
     doc = open('bot_edited.png', 'rb')
-    bot.send_photo(idInstagram, doc)
+    bot.send_photo(pic_channel, doc)
     doc = open('bot_edited.png', 'rb')
-    bot.send_document(idInstagram, doc)
+    bot.send_document(pic_channel, doc)
 
 
 def praca_quest(link):
@@ -635,7 +636,9 @@ def poster(id_forward, array):
     global last_date
     if array[0] != array[2]:
         message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
-        instagram_image(instagram_former(array[3]))
+        pic_text = instagram_former(array[3])
+        instagram_image(pic_text, 1080, idInstagram)
+        instagram_image(pic_text, 1920, idTikTok)
         if id_forward == idMain:
             if last_date < message.date:
                 last_date = message.date
