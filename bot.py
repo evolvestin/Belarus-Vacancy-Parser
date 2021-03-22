@@ -638,7 +638,10 @@ def poster(id_forward, array):
         message = bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
         pic_text = instagram_former(array[3])
         instagram_image(pic_text, 1080, idInstagram)
-        instagram_image(pic_text, 1920, idTikTok)
+        try:
+            instagram_image(pic_text, 1920, idTikTok)
+        except IndexError and Exception as e:
+            bot.send_message(idMe, str(e))
         if id_forward == idMain:
             if last_date < message.date:
                 last_date = message.date
