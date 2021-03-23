@@ -215,11 +215,13 @@ def instagram_image(text_array, pic_height, pic_channel):
     background = Image.new('RGB', (1080, pic_height), (254, 230, 68))
     img = Image.new('RGBA', (1080, pic_height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
+    height_coefficient = False
     original_height = 980
     original_width = 980
     layer_array = []
     more_font = 200
-    height_coefficient = False
+    if pic_height == 1920:
+        original_height = 1820
     while height_coefficient is False:
         while len(layer_array) != len(text_array):
             for t in text_array:
