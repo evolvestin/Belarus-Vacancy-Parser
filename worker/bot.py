@@ -719,7 +719,7 @@ async def repeat_all_messages(message: types.Message):
                             text = 'Посты на канале не публикуются'
                         else:
                             text = 'Посты на канале публикуются в штатном режиме'
-                        Auth.dev.message(text=f'block changed, block = {block}')
+                        Auth.dev.message(id=admins[0], text=f'block changed, block = {block}')
                         await bot.send_message(message['chat']['id'], parse_mode='HTML',
                                                text=f'Установлено новое значение:\n{bold(text)}')
                     except IndexError and Exception as error:
@@ -731,7 +731,7 @@ async def repeat_all_messages(message: types.Message):
                         text = 'Посты на канале не публикуются'
                     else:
                         text = 'Посты на канале публикуются в штатном режиме'
-                    Auth.dev.message(text=f'block not changed, block =  {block}')
+                    Auth.dev.message(id=admins[0], text=f'block not changed, block =  {block}')
                     await bot.send_message(message.chat.id, parse_mode='HTML',
                                            text=f'Уже установлено данное значение:\n{bold(text)}')
 
