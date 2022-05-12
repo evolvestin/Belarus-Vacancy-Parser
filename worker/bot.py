@@ -5,6 +5,7 @@ import _thread
 import gspread
 import requests
 from time import sleep
+from copy import deepcopy
 from aiogram import types
 from telegraph import upload
 from bs4 import BeautifulSoup
@@ -153,7 +154,7 @@ def instagram_former(growing):
 
 
 def image(image_text):
-    img = images['logo']
+    img = deepcopy(images['logo'])
     draw = ImageDraw.Draw(img)
     original_width = 1100
     original_height = 310
