@@ -31,7 +31,7 @@ def starting_print(timestamp):
     print(text)
 
 
-Repo.clone_from('https://github.com/evolvestin/Sport-Posting-Bot', 'temp')
+Repo.clone_from('https://github.com/evolvestin/Belarus-Vacancy-Parser', 'temp')
 for file_name in os.listdir('temp/worker'):
     if os.path.isdir(f'temp/worker/{file_name}'):
         shutil.copytree(f'temp/worker/{file_name}', file_name)
