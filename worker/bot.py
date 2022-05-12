@@ -56,8 +56,8 @@ keyboard.add(*buttons)
 # =================================================================================================================
 
 
-def iso_now():
-    return re.sub(r'\+.*', '', datetime.now(tz).isoformat(' ', 'seconds'))
+def iso(stamp):
+    return re.sub(r'\+.*', '', datetime.fromtimestamp(stamp, tz).isoformat(' ', 'seconds'))
 
 
 def hour():
@@ -648,10 +648,12 @@ def poster(id_forward, array):
         except IndexError and Exception as e:
             Auth.bot.send_message(admins[0], str(e))
         if id_forward == channels['main']:
+            print('last_date', datetime.fromtimestamp(last_date, tz).isoformat(' ', 'seconds'))
+            print('message.date', datetime.fromtimestamp(message.date, tz).isoformat(' ', 'seconds'))
             if last_date < message.date:
                 last_date = message.date
                 start_editing = f"{code('Последний пост на канале jobsrb')}\n" \
-                                f"{bold('d:')} {code(iso_now())} {bold(' :d')}\n" \
+                                f"{bold('d:')} {code(iso(last_date))} {bold(' :d')}\n" \
                                 f"{bold('block:')} {block} {bold(':block')}"
                 try:
                     Auth.bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
@@ -711,7 +713,7 @@ async def repeat_all_messages(message: types.Message):
                 if block != new_block:
                     block = new_block
                     start_editing = f"{code('Последний пост на канале jobsrb')}\n" \
-                                    f"{bold('d:')} {code(iso_now())} {bold(' :d')}\n" \
+                                    f"{bold('d:')} {code(iso(last_date))} {bold(' :d')}\n" \
                                     f"{bold('block:')} {block} {bold(':block')}"
                     try:
                         await bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
@@ -784,6 +786,7 @@ def checker(address, main_sep, link_sep, quest):
                 post = quest(i)
                 poster(channels['main'], former(post[1], 'MainChannel', post[0]))
                 Auth.dev.printer(f'{i} сделано')
+                _thread.exit()
                 sleep(3)
             else:
                 unused_box.append(i)
