@@ -786,7 +786,6 @@ def checker(address, main_sep, link_sep, quest):
                 post = quest(i)
                 poster(channels['main'], former(post[1], 'MainChannel', post[0]))
                 Auth.dev.printer(f'{i} сделано')
-                _thread.exit()
                 sleep(3)
             else:
                 unused_box.append(i)
