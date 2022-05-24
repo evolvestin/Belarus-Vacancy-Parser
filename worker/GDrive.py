@@ -5,7 +5,7 @@ import calendar
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
-standard_file_fields = 'files(id, name, parents, createdTime, modifiedTime)'
+standard_file_fields = 'files(id, name, parents, description, createdTime, modifiedTime)'
 
 
 def stamper(date, delta=0, pattern=None):
@@ -36,9 +36,10 @@ class Drive:
     def add_file_to_folder(self, file_id, folder_id):
         self.client.files().update(fileId=file_id, addParents=folder_id).execute()
 
-    def update_file(self, file_id, file_path):
+    def update_file(self, file_id, file_path, description=''):
+        file_metadata = {'description': description}
         media_body = MediaFileUpload(file_path, resumable=True)
-        return self.client.files().update(fileId=file_id, media_body=media_body).execute()
+        return self.client.files().update(fileId=file_id, media_body=media_body, body=file_metadata).execute()
 
     def get_permissions(self, file_id):
         fields = 'permissions(id, emailAddress, role)'

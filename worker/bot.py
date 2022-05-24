@@ -150,6 +150,7 @@ def checker(address: str, main_class: str, link_class: str, parser):
     for link_div in soup.find_all('div', attrs={'class': main_class}):
         link = link_div.find('a', attrs={'class': link_class})
         links.append(link.get('href')) if link else None
+    print(last_date + timedelta(hours=2), now)
     for link in links:
         if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
             if (last_date + timedelta(hours=2)) < now and block != 'True':
