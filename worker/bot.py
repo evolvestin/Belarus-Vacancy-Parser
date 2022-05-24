@@ -1,704 +1,389 @@
 import os
 import re
+import emoji
+import base64
+import random
+import string
+import asyncio
+import gspread
 import objects
 import _thread
-import gspread
 import requests
+from SQL import SQL
+from copy import copy
+from io import BytesIO
 from time import sleep
-from copy import deepcopy
+from typing import Union
 from aiogram import types
 from telegraph import upload
 from bs4 import BeautifulSoup
 from aiogram.utils import executor
-from objects import bold, code, time_now
-from images import images, emojis_pattern
+from db.emoji_gen import emojis_path
+from PIL.ImageFont import FreeTypeFont
 from aiogram.dispatcher import Dispatcher
 from PIL import Image, ImageFont, ImageDraw
+from statistics import median as median_function
 from datetime import datetime, timezone, timedelta
+from objects import code, html_link, html_secure, time_now
 # =================================================================================================================
 stamp1 = time_now()
 
 
-def query(link, string):
-    response = requests.get(link + '?embed=1')
-    soup = BeautifulSoup(response.text, 'html.parser')
-    is_post_not_exist = str(soup.find('div', class_='tgme_widget_message_error'))
-    if str(is_post_not_exist) == 'None':
+def query(link: str, regex: str):
+    soup = BeautifulSoup(requests.get(f'{link}?embed=1').text, 'html.parser')
+    if soup.find('div', class_='tgme_widget_message_error') is None:
         raw = str(soup.find('div', class_='tgme_widget_message_text js-message_text')).replace('<br/>', '\n')
-        text = BeautifulSoup(raw, 'html.parser').get_text()
-        search = re.search(string, text, flags=re.DOTALL)
-        return search
-    else:
-        return None
+        return re.search(regex, BeautifulSoup(raw, 'html.parser').get_text(), flags=re.DOTALL)
+
+
+def get_fonts():
+    paths = {}
+    for path in os.listdir('fonts'):
+        search = re.search(r'(.*?)-(.*)\.ttf', path)
+        if search:
+            paths[search.group(1)] = paths.get(search.group(1), {})
+            paths[search.group(1)][search.group(2)] = f'fonts/{path}'
+    return paths
 
 
 objects.environmental_files()
-color, start_post = (0, 0, 0), 8
-start_address = f'https://t.me/UsefullCWLinks/{start_post}'
-start_search = query(start_address, 'd: (.*?) :d.block: (.*?) :block')
-used = gspread.service_account('person2.json').open('growing').worksheet('main')
-tz, admins, unused_box = timezone(timedelta(hours=3)), [396978030, 470292601], []
+vars_post_id = os.environ['post']
+vars_link = f'https://t.me/UsefullCWLinks/{vars_post_id}'
+vars_search = query(vars_link, 'ID = (.*?) = ID.> (.*?) <.block = (.*?) = block')
+worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
 channels = {'main': -1001404073893, 'tiktok': -1001498374657, 'instagram': -1001186786378}
+tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_fonts(), []
 Auth = objects.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
-used_array = used.col_values(1)
-block = start_search.group(2) if start_search else None
+used_links = worksheet.col_values(1)
+block = vars_search.group(3) if vars_search else None
 bot, dispatcher = Auth.async_bot, Dispatcher(Auth.async_bot)
-last_date = datetime.fromisoformat(f'{start_search.group(1)}+03:00').timestamp() if start_search else None
-
-keyboard = types.InlineKeyboardMarkup(row_width=2)
-buttons = [types.InlineKeyboardButton(text='✅', callback_data='post'),
-           types.InlineKeyboardButton(text='👀', callback_data='viewed')]
-starting = ['title', 'place', 'tags', 'geo', 'money', 'org_name', 'schedule', 'employment', 'short_place',
-            'experience', 'education', 'contact', 'numbers', 'description', 'email', 'metro', 'tag_picture']
-headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36'
-                         ' (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
-keyboard.add(*buttons)
+next_post_id = int(vars_search.group(1)) if vars_search else None
+last_date = datetime.fromisoformat(f'{vars_search.group(2)}+03:00') if vars_search else None
+headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 '
+                         '(KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 # =================================================================================================================
 
 
-def iso(stamp):
-    return re.sub(r'\+.*', '', datetime.fromtimestamp(stamp, tz).isoformat(' ', 'seconds'))
+def bold(text, md=False):
+    return f'**{text}**' if md else f'<b>{text}</b>'
 
 
-def hour():
-    return int(datetime.utcfromtimestamp(int(time_now()) + 3 * 60 * 60).strftime('%H'))
+def italic(text, md=False):
+    return f'__{text}__' if md else f'<i>{text}</i>'
 
 
-def fonts(font_weight, font_size):
-    if font_weight == 'regular':
-        return ImageFont.truetype('fonts/Roboto-Regular.ttf', font_size)
-    elif font_weight == 'bold':
-        return ImageFont.truetype('fonts/Roboto-Bold.ttf', font_size)
-    else:
-        return ImageFont.truetype('fonts/RobotoCondensed-Bold.ttf', font_size)
+def font(size: int, family: str = 'OpenSans', weight: str = 'Regular'):
+    font_type = font_paths.get(family, font_paths.get('OpenSans'))
+    return ImageFont.truetype(font_type.get(weight, font_type.get('Regular')), size)
 
 
-def height_indent(row_text, font_weight, font_size):
-    size = ImageFont.ImageFont.getsize(fonts(font_weight, font_size), row_text)
-    text_height = size[1][1]
-    return text_height
+def width(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
+    emojis = emoji.emoji_list(text)
+    emoji_size = size + (size * 0.4)
+    indent = int(emoji_size + emoji_size * 0.11) * len(emojis)
+    text = emoji.replace_emoji(text, replace='') if emojis else text
+    return FreeTypeFont.getbbox(font(size, family, weight), text)[2] + indent
 
 
-def width(emoji_parameter, row_text, font_weight, font_size):
-    family = fonts(font_weight, font_size)
-    if emoji_parameter:
-        for f in emoji_parameter:
-            if f in ['💻', '💸', '📔', '🔋']:
-                family = fonts('bold', font_size)
-    size = ImageFont.ImageFont.getsize(family, row_text)
-    text_width = size[0][0]
-    return text_width
+def google(link):
+    global worksheet
+    try:
+        worksheet.insert_row([link], 1)
+    except IndexError and Exception:
+        worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
+        worksheet.insert_row([link], 1)
 
 
-def height(emoji_parameter, row_text, font_weight, font_size):
-    family = fonts(font_weight, font_size)
-    if emoji_parameter:
-        for f in emoji_parameter:
-            if f in ['💻', '💸', '📔', '🔋']:
-                family = fonts('bold', font_size)
-    size = ImageFont.ImageFont.getsize(family, row_text)
-    text_height = size[0][1]
-    return text_height
+def min_height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
+    letter_heights = [FreeTypeFont.getbbox(font(size, family, weight), i, anchor='lt')[3] for i in list(text)]
+    descender_heights = [FreeTypeFont.getbbox(font(size, family, weight), i, anchor='ls')[3] for i in list(text)]
+    result = [element1 - element2 for (element1, element2) in zip(letter_heights, descender_heights)]
+    if emoji.emoji_list(text):
+        return max(result)
+    return median_function(result) if result else 0
 
 
-def search_emoji(text):
-    search = re.search(emojis_pattern, text)
-    if search:
-        array = [[search.group(1)]]
-    else:
-        array = [False]
-    if '➡' in text:
-        if array[0]:
-            array[0].append('➡')
-        else:
-            array[0] = ['➡']
-    array.append(re.sub(emojis_pattern, '', text))
-    return array
+def height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
+    emoji_size = size + (size * 0.4)
+    response = int(emoji_size - emoji_size * 0.22) if emoji.emoji_list(text) else None
+    if response is None:
+        result = [FreeTypeFont.getbbox(font(size, family, weight), text, anchor=anchor)[3] for anchor in ['lt', 'ls']]
+        response = result[0] - result[1]
+    return response
 
 
-def instagram_former(growing):
-    for i in growing:
-        if str(type(growing.get(i))) == "<class 'str'>":
-            growing[i] = re.sub('➡', '—', growing.get(i))
-    array = []
-    if growing['title'] != 'none':
-        array.append('💻' + growing['title'])
-    if growing['place'] != 'none':
-        array.append('🏙' + growing['place'])
-    if growing['experience'] != 'none':
-        array.append('🏅Опыт работы ➡ ' + growing['experience'])
-    if growing['education'] != 'none':
-        array.append('🎓Образование ➡ ' + growing['education'])
-    if growing['money'] != 'none':
-        more = ''
-        if growing['money'][1] != 'none':
-            more += '+'
-        array.append('💸З/П ' + growing['money'][0] + more + ' руб.')
-    array.append(' ')
-    array.append('📔Контакты')
-    if growing['org_name'] != 'none':
-        array.append(growing['org_name'])
-    if growing['contact'] != 'none':
-        array.append(growing['contact'])
-    if growing['numbers'] != 'none':
-        numbers = growing['numbers'].split('\n')
-        array.append(numbers[0])
-    if growing['email'] != 'none':
-        array.append(growing['email'] + ' ➡ Резюме')
-    if growing['email'] == 'none' and growing['numbers'] == 'none':
-        array.append('🔋Источник в нашем telegram канале ➡ Ссылка в профиле')
-    if growing['metro'] != 'none':
-        array.append('🚇' + growing['metro'])
-    return array
+def edit_vars():
+    last_date_iso = re.sub(r'\+.*', '', last_date.isoformat(' ', 'seconds'))
+    text = f"{code('Последний пост на канале с вакансиями')}\n" \
+           f"{bold('ID =')} {next_post_id} {bold('= ID')}\n" \
+           f"{bold('&#62;')} {code(last_date_iso)} {bold('&#60;')}\n" \
+           f"{bold('block =')} {block} {bold('= block')}"
+    try:
+        Auth.bot.edit_message_text(text, -1001471643258, vars_post_id, parse_mode='HTML')
+    except IndexError and Exception as error:
+        Auth.dev.message(text=f"{bold('Проблема с изменением переменных на канале')} "
+                              f"{vars_link}\n\n{html_secure(text)}\n{html_secure(error)}")
 
 
-def image(image_text):
-    img = deepcopy(images['logo'])
-    draw = ImageDraw.Draw(img)
-    original_width = 1100
-    original_height = 310
-    left = 50
-    if width(None, image_text, 'condensed', 100) <= original_width:
-        more_font = 200
-        while width(None, image_text, 'condensed', more_font) > original_width:
-            more_font -= 1
-        left += (original_width - width(None, image_text, 'condensed', more_font)) // 2
-        top = 200 - height_indent(image_text, 'condensed', more_font)
-        top += (original_height - height(None, image_text, 'condensed', more_font)) // 2
-        draw.text((left, top), image_text, color, fonts('condensed', more_font))
-    else:
-        layer = 1
-        drop_text = ''
-        layer_array = []
-        full_height = 0
-        temp_text_array = re.sub(r'\s+', ' ', image_text.strip()).split(' ')
-        for i in range(0, len(temp_text_array)):
-            if width(None, temp_text_array[i], 'condensed', 100) <= original_width:
-                if width(None, (drop_text + ' ' + temp_text_array[i]).strip(), 'condensed', 100) <= original_width:
-                    drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
+def inst_handler(data: dict):
+    array = [bold(f"👨🏻‍💻 {data['title']}", md=True)] if data.get('title') else []
+    array.append(f"🏙 {data['place']}") if data.get('place') else None
+    array.append(f"🏅 Опыт работы ➡ {data['experience']}") if data.get('experience') else None
+    array.append(f"👨🏻‍🎓 Образование ➡ {data['education']}") if data.get('education') else None
+    array.append(bold(f"💸 З/П {data['money']} руб.", md=True)) if data.get('money') else None
+    array.append(f"\n{bold('📘 Контакты', md=True)}")
+    for key in ['org_name', 'contact', 'numbers']:
+        array.append(data[key]) if data.get(key) else None
+    array.append(f"{data['email']} ➡ Резюме") if data.get('email') else None
+    if data.get('email') is None and data.get('numbers') is None:
+        array.append(bold('🔋 Источник в нашем telegram канале ➡ Ссылка в профиле', md=True))
+    array.append(f"🚇 {data['underground']}") if data.get('underground') else None
+    return '\n'.join(array)
+
+
+def checker(address: str, main_class: str, link_class: str, parser):
+    global used_links, unused_links
+    sleep(3)
+    now, links = datetime.now(tz), []
+    soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
+    for link_div in soup.find_all('div', attrs={'class': main_class}):
+        link = link_div.find('a', attrs={'class': link_class})
+        links.append(link.get('href')) if link else None
+    for link in links:
+        if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
+            if (last_date + timedelta(hours=2)) < now and block != 'True':
+                google(link)
+                used_links.insert(0, link)
+                poster(parser(link))
+                Auth.dev.printer(f'{link} сделано')
+                sleep(3)
+            else:
+                unused_links.append(link)
+
+
+def image(text: str, return_link=False,
+          background: Union[Image.open, Image.new] = None,
+          font_size: int = 300, font_family: str = 'OpenSans', font_weight: str = 'Regular',
+          original_width: int = 1000, original_height: int = 1000, text_align: str = 'center',
+          left_indent: int = 50, top_indent: int = 50, left_indent_2: int = 0, top_indent_2: int = 0,
+          text_color: tuple[int, int, int] = (0, 0, 0), background_color: tuple[int, int, int] = (256, 256, 256)):
+    file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.jpg"
+    mask, family, spacing, response, coefficient, modal_height = None, font_family, 0, None, 0.6, 0
+    original_width = background.getbbox()[2] if background and original_width == 1000 else original_width
+    original_height = background.getbbox()[3] if background and original_height == 1000 else original_height
+    db, original_scale = SQL(emojis_path), (original_width, original_height)
+    original_height -= top_indent * 2 + top_indent_2
+    original_width -= left_indent * 2 + left_indent_2
+    size = font_size if font_size != 300 else original_width // 3
+    background = copy(background) or Image.new('RGB', original_scale, background_color)
+    while spacing < modal_height * coefficient or spacing == 0:
+        skip, layers, heights, weights = False, [], [], []
+        mask = Image.new('RGBA', original_scale, (0, 0, 0, 0))
+        for line in text.strip().split('\n'):
+            line_weight, layer_array = font_weight, []
+            if line.startswith('**') and line.endswith('**'):
+                line_weight, line = 'Bold', line.strip('**')
+            if line.startswith('__') and line.endswith('__'):
+                line_weight, line = 'Italic', line.strip('__')
+            if line:
+                for word in re.sub(r'\s+', ' ', line).strip().split(' '):
+                    if width(word, size, family, line_weight) > original_width:
+                        skip = True
+                        break
+                    if width(' '.join(layer_array + [word]), size, family, line_weight) > original_width:
+                        weights.append(line_weight), layers.append(' '.join(layer_array))
+                        heights.append(height(' '.join(layer_array), size, family, line_weight))
+                        layer_array = [word]
+                    else:
+                        layer_array.append(word)
                 else:
-                    if drop_text != '' and len(layer_array) < 3:
-                        layer_array.append(drop_text)
-                        full_height += height(None, drop_text, 'condensed', 100)
-                    drop_text = ''
-                    drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
-                if i == len(temp_text_array) - 1:
-                    if drop_text != '' and len(layer_array) < 3:
-                        layer_array.append(drop_text)
-                        full_height += height(None, drop_text, 'condensed', 100)
-        additional_height = 0
-        indent_height = int(full_height / len(layer_array) + 0.15 * (full_height / len(layer_array)))
-        mod = int((original_height - len(layer_array) * indent_height) / 2)
-        for i in layer_array:
-            text_position = (left + (original_width - width(None, i, 'condensed', 100)) // 2,
-                             200 + mod + additional_height)
-            additional_height += indent_height
-            draw.text(text_position, i, color, fonts('condensed', 100))
-            layer += 1
-    img.save('bot_edited.jpg')
-    doc = open('bot_edited.jpg', 'rb')
-    uploaded = upload.upload_file(doc)
-    uploaded_link = '<a href="https://telegra.ph' + uploaded[0] + '">​​</a>️'
-    doc.close()
-    os.remove('bot_edited.jpg')
-    return uploaded_link
+                    weights.append(line_weight), layers.append(' '.join(layer_array))
+                    heights.append(height(' '.join(layer_array), size, family, line_weight))
+            else:
+                layers.append(''), heights.append(0), weights.append(line_weight)
 
+        if skip:
+            size -= 1
+            continue
 
-def instagram_image(text_array, pic_height, pic_channel):
-    background = Image.new('RGB', (1080, pic_height), (254, 230, 68))
-    img = Image.new('RGBA', (1080, pic_height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    height_coefficient = False
-    original_height = 980
-    original_width = 980
-    layer_array = []
-    more_font = 200
-    if pic_height == 1920:
-        original_height = 1820
-    while height_coefficient is False:
-        while len(layer_array) != len(text_array):
-            for t in text_array:
-                array = search_emoji(t)
-                emoji_factor = 0
-                if array[0]:
-                    emoji_factor += int(more_font + more_font * 0.35) * len(array[0])
-                if width(array[0], array[1], 'regular', more_font) + emoji_factor <= original_width:
-                    layer_array.append(array)
-                else:
-                    temp_text_array = re.sub(r'\s+', ' ', array[1]).split(' ')
-                    array = [array[0]]
-                    drop_text = ''
-                    for i in range(0, len(temp_text_array)):
-                        if width(array[0], (drop_text + ' ' + temp_text_array[i]).strip(), 'regular', more_font) \
-                                + emoji_factor <= original_width:
-                            drop_text = (drop_text + ' ' + temp_text_array[i]).strip()
-                        else:
-                            if drop_text != '' and len(array) < 3:
-                                array.append(drop_text)
-                            else:
-                                break
-                            drop_text = temp_text_array[i]
-                        if i == len(temp_text_array) - 1:
-                            if drop_text != '' and len(array) < 3:
-                                array.append(drop_text)
-                                layer_array.append(array)
-                            else:
-                                break
-            if len(layer_array) != len(text_array):
-                more_font -= 1
-                layer_array.clear()
-        layer_count = 0
-        additional_height = 0
-        for i in layer_array:
-            layer_count += len(i) - 1
-        indent_height = int(more_font + 0.15 * more_font)
-        if layer_count * indent_height <= original_height:
-            mod = 50 + int((original_height - layer_count * indent_height) / 2)
-            pic = mod + int(0.1 * more_font)
-            previous_arrow_array = None
-            for array in layer_array:
-                for i in array:
-                    if array.index(i) != 0:
-                        left = 0
-                        arrow_split = False
-                        family = fonts('regular', more_font)
-                        if array[0]:
-                            for f in array[0]:
-                                if f in ['💻', '💸', '📔', '🔋']:
-                                    family = fonts('bold', more_font)
-                                if f in ['💻', '🏙', '🏅', '🎓', '💸', '📔', '🚇', '💼', '🔋']:
-                                    left += int(more_font + more_font * 0.35)
-                                    if array.index(i) == 1:
-                                        foreground = images[f].resize((more_font, more_font), Image.ANTIALIAS)
-                                        background.paste(foreground, (50, pic + additional_height), foreground)
-                                if f == '➡':
-                                    arrow_split = True
-                        if arrow_split is False:
-                            text_position = (50 + left, mod + additional_height)
-                            draw.text(text_position, i, color, family)
-                        else:
-                            text = i
-                            arrow_indent = 50 + left
-                            arrow_array = i.split('➡')
-                            foreground = images['➡'].resize((more_font, more_font), Image.ANTIALIAS)
-                            if len(arrow_array) > 1:
-                                text = arrow_array[1]
-                                previous_arrow_array = arrow_array
-                                text_position = (arrow_indent, mod + additional_height)
-                                arrow_indent += width(array[0], arrow_array[0], 'regular', more_font)
-                                draw.text(text_position, arrow_array[0], color, family)
-                                if text != '':
-                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
-                            if len(arrow_array) == 1 and previous_arrow_array:
-                                if previous_arrow_array[0] == '' and previous_arrow_array[1] == '':
-                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
-                                    previous_arrow_array = None
-                                elif previous_arrow_array[1] == '':
-                                    background.paste(foreground, (arrow_indent, pic + additional_height), foreground)
-                                    arrow_indent += int(more_font * 0.35)
-                                    previous_arrow_array = None
-                                else:
-                                    arrow_indent -= more_font
-                            text_position = (arrow_indent + more_font, mod + additional_height)
-                            draw.text(text_position, text, color, family)
-                        additional_height += indent_height
-            height_coefficient = True
+        layers_count = len(layers) - 1 if len(layers) > 1 else 1
+        full_height = heights[0] - min_height(layers[0], size, family, weights[0])
+        modal_height = max(heights) if emoji.emoji_list(text) else median_function(heights)
+        full_height += sum([min_height(layers[i], size, family, weights[i]) for i in range(0, len(layers))])
+        draw, aligner, emoji_size, additional_height = copy(ImageDraw.Draw(mask)), 0, size + (size * 0.4), 0
+        spacing = (original_height - full_height) // layers_count
+        if spacing > modal_height * coefficient:
+            spacing = modal_height * coefficient
+            aligner = (original_height - full_height - (spacing if len(layers) > 1 else 0) * layers_count) // 2
+        for i in range(0, len(layers)):
+            left = left_indent + left_indent_2
+            emojis = [e['emoji'] for e in emoji.emoji_list(layers[i])]
+            modded = (heights[i] - min_height(layers[i], size, family, weights[i]))
+            chunks = [re.sub('&#124;', '|', i) for i in emoji.replace_emoji(layers[i], replace='|').split('|')]
+            modded = modded if i != 0 or (i == 0 and layers_count == 0) else 0
+            top = top_indent + top_indent_2 + aligner + additional_height - modded
+            additional_height += heights[i] - modded + spacing
+            if text_align == 'center':
+                left += (original_width - width(layers[i], size, family, weights[i])) // 2
+
+            for c in range(0, len(chunks)):
+                chunk_width = width(chunks[c], size, family, weights[i])
+                emoji_scale = (left + chunk_width + int(emoji_size * 0.055), int(top))
+                text_scale = (left, top + heights[i] - height(chunks[c], size, family, weights[i]))
+                draw.text(text_scale, chunks[c], text_color, font(size, family, weights[i]), anchor='lt')
+                if c < len(emojis):
+                    emoji_record = db.get_emoji(emojis[c])
+                    if emoji_record:
+                        emoji_image = BytesIO(base64.b64decode(emoji_record['data']))
+                        foreground = Image.open(emoji_image).resize((int(emoji_size), int(emoji_size)), 3)
+                    else:
+                        foreground = Image.new('RGBA', (int(emoji_size), int(emoji_size)), (0, 0, 0, 1000))
+                    try:
+                        mask.paste(foreground, emoji_scale, foreground)
+                    except IndexError and Exception:
+                        mask.paste(foreground, emoji_scale)
+                left += chunk_width + int(emoji_size + emoji_size * 0.11)
+        size -= 1
+    db.close()
+    if mask:
+        background.paste(mask, (0, 0), mask)
+        background.save(file_name)
+        if return_link:
+            with open(file_name, 'rb') as file:
+                response = f'https://telegra.ph{upload.upload_file(file)[0]}'
+            os.remove(file_name)
         else:
-            more_font -= 1
-            layer_array.clear()
-
-    background.paste(img, (0, 0), img)
-    background.save('bot_edited.png')
-    doc = open('bot_edited.png', 'rb')
-    Auth.bot.send_photo(pic_channel, doc)
-    doc.close()
-    doc = open('bot_edited.png', 'rb')
-    Auth.bot.send_document(pic_channel, doc)
-    doc.close()
-    os.remove('bot_edited.png')
+            return file_name
+    return response
 
 
-def praca_quest(link):
-    pub_link = link
-    req = requests.get(link)
-    soup = BeautifulSoup(req.text, 'html.parser')
+def tg_handler(data: dict):
+    logo = Image.open('logo.png')
+    picture = image(text=data.get('title', 'Sample'), return_link=True, background=logo,
+                    original_width=logo.getbbox()[2], original_height=logo.getbbox()[3],
+                    font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
+    if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
+        return {'text': None, 'image': picture}
+    elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
+        return {'text': None, 'image': picture}
+    elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
+        return {'text': None, 'image': picture}
+    elif data.get('experience') and re.search('6', data['experience']):
+        return {'text': None, 'image': picture}
+    text = f"{html_link(picture, '​​')}️" if picture else ''
+    text += f"👨🏻‍💻 {bold(data['title'])}\n" if data.get('title') else ''
+    text += f"🏙 {data['short_place']}\n" if data.get('short_place') else ''
+    text += f"🏅 Опыт работы ➡ {data['experience'].capitalize()}\n" if data.get('experience') else ''
+    text += f"👨‍🎓 Образование ➡ {data['education'].capitalize()}\n" if data.get('education') else ''
+    text += f"💸 {bold('З/П')} {data['money']} руб.\n" if data.get('money') else ''
+    text += f"\n{bold('📔 Контакты')}\n"
+    for key in ['org_name', 'contact', 'numbers']:
+        text += f"{data[key]}\n" if data.get(key) else ''
+    text += f"{data['email']} ➡ Резюме\n" if data.get('email') else ''
+    text += f"\n{bold('🏘 Адрес')}\n{data['place']}\n" if data.get('place') else ''
+    text += f"🚇 {data['underground']}\n" if data.get('underground') else ''
+    map_link = f"http://maps.yandex.ru/?text={data['geo']}" if data.get('geo') else None
+    text += f"\n📍 {html_link(map_link, 'На карте')}\n" if map_link else ''
+    text += f"\n🔎 {html_link(data['link'], 'Источник')}\n" if data.get('link') else ''
+    text += f'\n🆔 {italic(next_post_id)}'
+    text += f"\n{italic('💼ТЕГИ:')} #{' #'.join(data['tags'])}\n" if data.get('tags') else ''
+    return {'text': text, 'image': picture}
 
-    growing = {}
-    for i in starting:
-        growing[i] = 'none'
 
-    if soup.find('span', class_='hidden-vac-contact') is not None:
+def poster(data: dict):
+    global last_date, next_post_id
+    tg = tg_handler(data)
+    if tg.get('text'):
+        message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
+        next_post_id = message.message_id + 1
+        message_date = datetime.fromtimestamp(message.date, tz)
+        inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                          background_color=(254, 230, 68), original_width=1080, original_height=1080)
+        tt_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                        background_color=(254, 230, 68), original_width=1080, original_height=1920)
+        for path, channel in [(inst_path, 'instagram'), (tt_path, 'tiktok')]:
+            with open(path, 'rb') as picture:
+                Auth.bot.send_photo(channels[channel], picture)
+            with open(path, 'rb') as picture:
+                Auth.bot.send_document(channels[channel], picture)
+            os.remove(path)
+        if last_date < message_date:
+            last_date = message_date
+            edit_vars()
+    else:
+        text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Что-то пошло не так: &#123;\n"
+        for key, value in data.items():
+            selected = ['link', 'money', 'title', 'short_place']
+            text += f"{' ' * 6}{objects.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
+        Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+
+
+def prc_parser(link: str):
+    data = {'link': link}
+    soup = BeautifulSoup(requests.get(link).text, 'html.parser')
+    if soup.find('span', class_='hidden-vac-contact'):
         link += '?token=wykzQ7x5oq6kZWG7naOvHprT4vcZ1vdFFUSXoOfmKR10pPWq0ox5acYvr3wcfg00'
-        req = requests.get(link)
-        soup = BeautifulSoup(req.text, 'html.parser')
-
-    title_div = soup.find('div', class_='vacancy__title-wrap')
-    title = title_div.find('h1') if title_div else None
-    if title is not None:
-        growing['title'] = title.get_text().strip()
+        soup = BeautifulSoup(requests.get(link).text, 'html.parser')
 
     place = soup.find('div', class_='job-address')
-    if place is not None:
-        growing['place'] = re.sub(r'\s+', ' ', place.get_text()).strip()
-
-    short_place = soup.find('div', class_='vacancy__city')
-    if short_place is not None:
-        growing['short_place'] = re.sub(r'\s+', ' ', short_place.get_text().strip())
-
     tag_list = soup.find('div', class_='categories')
-    if tag_list is not None:
-        tags = tag_list.find_all('a')
-        tag_array = []
-        for i in tags:
-            tag = re.sub(r'[\s-]', '_', i.get_text())
-            tag_array.append(re.sub('_/_', ' #', tag))
-        growing['tags'] = tag_array
-
-    geo_search = re.search('{"latitude":"(.*?)","longitude":"(.*?)","zoom"', str(soup))
-    if geo_search:
-        growing['geo'] = re.sub(r'\s', '', geo_search.group(1)) + ',' + re.sub(r'\s', '', geo_search.group(2))
-
-    metro = soup.find('div', class_='vacancy__metro')
-    if metro is not None:
-        metro_array = metro.find_all('span', class_='nowrap')
-        metro = ''
-        for i in metro_array:
-            metro += re.sub(r'\s+', ' ', i.get_text().capitalize().strip() + ', ')
-        growing['metro'] = metro[:-2]
-
     money = soup.find('div', class_='vacancy__salary')
-    if money is not None:
-        money = re.sub(r'\s', '', money.get_text())
-        search_gold = re.search(r'(\d+)', money)
-        search = re.search('ивыше', money)
-        money_array = []
-        more = 'none'
-        if search_gold:
-            money_array.append(search_gold.group(1))
-        if search:
-            more = 'more'
-        money_array.append(more)
-        growing['money'] = money_array
-
+    short_place = soup.find('div', class_='vacancy__city')
     org_name = soup.find('div', class_='vacancy__org-name')
-    if org_name is not None:
-        growing['org_name'] = re.sub(r'\s+', ' ', org_name.find('a').get_text().strip())
+    underground = soup.find('div', class_='vacancy__metro')
+    title_div = soup.find('div', class_='vacancy__title-wrap')
+    geo = re.search('{"latitude":"(.*?)","longitude":"(.*?)","zoom"', str(soup))
 
-    items = soup.find_all('div', class_='vacancy__item')
-    for i in items:
-        schedule = i.find('i', class_='pri-schedule')
-        if schedule is not None:
-            schedule = i.find('div', class_='vacancy__desc').get_text().strip()
-            growing['schedule'] = re.sub(r'\s+', ' ', schedule)
+    tags = tag_list.find_all('a') if tag_list else []
+    title = title_div.find('h1') if title_div else None
+    underground_list = underground.find_all('span', class_='nowrap') if underground else []
+    search_money = re.search(r'(\d+)', re.sub(r'\s', '', money.get_text())) if money else None
+    search_payroll = re.search(r'(\d+)-(\d+)', re.sub(r'\s', '', money.get_text())) if money else None
+    underground_modded_list = [re.sub(r'\s+', ' ', un.get_text()).strip().capitalize() for un in underground_list]
 
-        employment = i.find('i', class_='pri-employment')
-        if employment is not None:
-            employment = i.find('div', class_='vacancy__desc').get_text().strip()
-            growing['employment'] = re.sub(r'\s+', ' ', employment)
+    data['underground'] = ', '.join(underground_modded_list) or None
+    data['money'] = f"{search_money.group(1)}" if search_money else None
+    data['place'] = re.sub(r'\s+', ' ', place.get_text()).strip() if place else None
+    data['geo'] = re.sub(r'\s', '', f"{geo.group(1)},{geo.group(2)}").strip() if geo else None
+    data['money'] = f"{data['money']}+" if search_payroll and data['money'] else data.get('money')
+    data['short_place'] = re.sub(r'\s+', ' ', short_place.get_text()).strip() if short_place else None
+    data['org_name'] = re.sub(r'\s+', ' ', org_name.find('a').get_text()).strip() if org_name else None
+    data['title'] = re.sub(r'\s+', ' ', re.sub('/', ' / ', title.get_text())).strip() if title else None
+    data['tags'] = [re.sub('_/_', ' #', re.sub(r'[\s_—-]+', '_', tag.get_text())).strip() for tag in tags]
 
-        experience = i.find('p', class_='vacancy__experience')
-        if experience is not None:
-            experience = re.sub('Опыт работы', '', experience.get_text())
-            growing['experience'] = re.sub(r'\s+', ' ', experience.strip())
+    for div in soup.find_all('div', class_='vacancy__item'):
+        education = div.find('p', class_='vacancy__education')
+        experience = div.find('p', class_='vacancy__experience')
+        edu_text = re.sub(r'[оО]бразование', '', education.get_text()) if education else None
+        exp_text = re.sub(r'[оО]пыт работы', '', experience.get_text()) if experience else None
+        data['education'] = re.sub(r'\s+', ' ', edu_text).strip() if edu_text else data.get('education')
+        data['experience'] = re.sub(r'\s+', ' ', exp_text).strip() if exp_text else data.get('experience')
 
-        education = i.find('p', class_='vacancy__education')
-        if education is not None:
-            education = re.sub('.бразование', '', education.get_text())
-            growing['education'] = re.sub(r'\s+', ' ', education.strip())
-
-    for i in soup.find_all('div', class_='org-info__item'):
-        contact_title_raw = i.find('div', class_='org-info__subtitle h4-like')
-        contact_title = contact_title_raw.get_text() if contact_title_raw else None
-
-        if contact_title == 'Контактное лицо:':
-            contact_value = i.find('div', attrs={'class': None})
-            if contact_value:
-                growing['contact'] = re.sub(r'\s+', ' ', contact_value.get_text()).strip()
-
-        if contact_title == 'Электронная почта:':
-            contact_value = i.find('div', class_='org-info__contact-list')
-            if contact_value:
-                growing['email'] = re.sub(r'	+', ' ', contact_value.get_text('\n')).strip()
-
-        if contact_title == 'Номера телефонов:':
-            contact_value = i.find('div', class_='org-info__contact-list')
-            if contact_value:
-                growing['numbers'] = re.sub(r'	+', ' ', contact_value.get_text('\n')).strip()
-    return [pub_link, growing]
+    for div in soup.find_all('div', class_='org-info__item'):
+        contact_div = div.find('div', class_='org-info__subtitle h4-like')
+        contact_title = contact_div.get_text() if contact_div else None
+        if contact_title in ['Электронная почта:', 'Номера телефонов:']:
+            value = div.find('div', class_='org-info__contact-list')
+            key = 'email' if contact_title == 'Электронная почта:' else 'numbers'
+            data[key] = re.sub(r'[^\S\r\n]+', ' ', value.get_text('\n')).strip() if value else None
+        elif contact_title == 'Контактное лицо:':
+            value = div.find('div', attrs={'class': None})
+            data['contact'] = re.sub(r'\s+', ' ', value.get_text()).strip() if value else None
+    return data
 
 
-def tut_quest(pub_link):
-    req = requests.get(pub_link, headers=headers)
-    soup = BeautifulSoup(req.text, 'html.parser')
-
-    growing = {}
-    for i in starting:
-        growing[i] = 'none'
-
-    title = soup.find('div', class_='vacancy-title')
-    if title is not None:
-        if title.find('h1') is not None:
-            tag = ''
-            headline = re.sub(r'\s+', ' ', title.find('h1').get_text())
-            growing['title'] = headline
-            headline = re.sub('/', ' / ', headline)
-            headline = re.sub(r'\(.*?\)|[+.,/]|г\.', '', headline.lower())
-            headline = re.sub('e-mail', 'email', re.sub(r'\s+', ' ', headline))
-            headline = re.sub(r'[\s-]', '_', headline.strip().capitalize())
-            for i in re.split('(_)', headline):
-                if len(tag) <= 20:
-                    tag += i
-            if tag.endswith('_'):
-                tag = tag[:-1]
-            growing['tags'] = [tag]
-
-    place = soup.find('div', class_='vacancy-address-text')
-    if place is not None:
-        metro = ''
-        metro_array = place.find_all('span', class_='metro-station')
-        for i in metro_array:
-            metro += re.sub(r'\s+', ' ', i.get_text().strip() + ', ')
-        if metro != '':
-            growing['metro'] = metro[:-2]
-        growing['place'] = re.sub(metro, '', re.sub(r'\s+', ' ', place.get_text()).strip())
-
-    short_place = soup.find_all('span')
-    if short_place is not None:
-        for i in short_place:
-            if str(i).find('vacancy-view-raw-address') != -1:
-                search = re.search('<!-- -->(.*?)<!-- -->', str(i))
-                if search:
-                    growing['short_place'] = re.sub(r'\s+', ' ', search.group(1).capitalize().strip())
-                    break
-        if growing['short_place'] == 'none':
-            short_place = soup.find('div', class_='vacancy-company')
-            if short_place is not None:
-                short_place = short_place.find('p')
-                if short_place is not None:
-                    growing['short_place'] = re.sub(r'\s+', ' ', short_place.get_text().capitalize().strip())
-
-    geo_search = re.search('{"lat": (.*?), "lng": (.*?), "zoom"', str(soup))
-    if geo_search:
-        growing['geo'] = re.sub(r'\s', '', geo_search.group(1)) + ',' + re.sub(r'\s', '', geo_search.group(2))
-
-    money = soup.find('p', class_='vacancy-salary')
-    if money is not None:
-        money_array = []
-        money = re.sub(r'\s', '', money.get_text().lower())
-        search_ot = re.search(r'от(\d+)', money)
-        search_do = re.search(r'до(\d+)', money)
-        if search_do:
-            money_array.append(search_do.group(1))
-            money_array.append('none')
-        elif search_ot:
-            money_array.append(search_ot.group(1))
-            money_array.append('more')
-        else:
-            money_array = 'none'
-        growing['money'] = money_array
-
-    org_name = soup.find('a', {'data-qa': 'vacancy-company-name'})
-    if org_name is not None:
-        growing['org_name'] = re.sub(r'\s+', ' ', org_name.get_text().strip())
-
-    description = soup.find('div', class_='g-user-content')
-    if description is not None:
-        description = description.find_all(['p', 'ul', 'strong'])
-        tempering = []
-        main = ''
-        prev = ''
-        for i in description:
-            text = ''
-            lists = i.find_all('li')
-            if len(lists) != 0:
-                for g in lists:
-                    text += '🔹 ' + re.sub('\n', '', g.get_text().capitalize()) + '\n'
-            else:
-                temp = i.get_text().strip()
-                if prev != temp:
-                    if temp.endswith(':'):
-                        text += '\n✅ ' + bold(temp) + '\n'
-                    else:
-                        tempering.append(temp)
-                prev = temp
-            main += text
-        main = main[:-1]
-        if len(tempering) > 0:
-            main += '\n\n'
-        for i in tempering:
-            main += i + '\n'
-        growing['description'] = main
-
-    numbers = ''
-    items = soup.find_all(['p', 'a', 'span'])
-    for i in items:
-        search = re.search('data-qa="vacancy-view-employment-mode"', str(i))
-        if search:
-            schedule_text = ''
-            schedule = i.find('span')
-            if schedule is not None:
-                schedule_text = re.sub(r'\s+', ' ', schedule.get_text().strip())
-                growing['schedule'] = re.sub('график', '', schedule_text).strip().capitalize()
-            employment = re.sub(r'\s+', ' ', i.get_text().lower())
-            employment = re.sub(',|занятость|' + schedule_text, '', employment).strip().capitalize()
-            growing['employment'] = employment
-
-        search = re.search('data-qa="vacancy-experience"', str(i))
-        if search:
-            growing['experience'] = re.sub(r'\s+', ' ', i.get_text().strip())
-
-        search = re.search('data-qa="vacancy-contacts__fio"', str(i))
-        if search:
-            growing['contact'] = re.sub(r'\s+', ' ', i.get_text().strip())
-
-        search = re.search('data-qa="vacancy-contacts__email"', str(i))
-        if search:
-            growing['email'] = re.sub(r'\s+', ' ', i.get_text().strip())
-
-        search = re.search('data-qa="vacancy-contacts__phone"', str(i))
-        if search:
-            if numbers.find(re.sub(r'\s+', ' ', i.get_text().strip())) == -1:
-                numbers += re.sub(r'\s+', ' ', i.get_text().strip()) + '\n'
-    if numbers != '':
-        growing['numbers'] = numbers[:-1]
-    return [pub_link, growing]
-
-
-def former(growing, kind, pub_link):
-    text = ''
-    if growing['title'] != 'none':
-        text_to_image = re.sub('/', ' / ', growing['title'])
-        text_to_image = re.sub(r'\(.*?\)|[+.,]|г\.', '', text_to_image)
-        text_to_image = re.sub('e-mail', 'email', re.sub(r'\s+', ' ', text_to_image))
-        growing['tag_picture'] = image(re.sub(r'[\s-]', ' ', text_to_image.strip()))
-        text = growing['tag_picture'] + '👨🏻‍💻 ' + bold(growing['title']) + '\n'
-    if growing['short_place'] != 'none':
-        text += '🏙 ' + growing['short_place'] + '\n'
-    if growing['experience'] != 'none':
-        text += '🏅 Опыт работы ➡ ' + growing['experience'].capitalize() + '\n'
-    if growing['education'] != 'none':
-        text += '👨‍🎓 Образование ➡ ' + growing['education'].capitalize() + '\n'
-    if growing['money'] != 'none':
-        more = ''
-        if growing['money'][1] != 'none':
-            more += '+'
-        text += '💸 ' + bold('З/П ') + growing['money'][0] + more + ' руб.' + '\n'
-    text += bold('\n📔 Контакты\n')
-    if growing['org_name'] != 'none':
-        text += growing['org_name'] + '\n'
-    if growing['contact'] != 'none':
-        text += growing['contact'] + '\n'
-    if growing['numbers'] != 'none':
-        text += growing['numbers'] + '\n'
-    if growing['email'] != 'none':
-        text += growing['email'] + ' ➡ Резюме\n'
-    if growing['place'] != 'none':
-        text += bold('\n🏘 Адрес\n') + growing['place'] + '\n'
-    if growing['metro'] != 'none':
-        text += '🚇 ' + growing['metro'] + '\n'
-
-    if kind == 'MainChannel':
-        keys = None
-        if growing['geo'].lower() != 'none':
-            text += '\n📍 <a href="http://maps.yandex.ru/?text=' + growing['geo'] + '">На карте</a>\n'
-        text += '\n🔎 <a href="' + pub_link + '">Источник</a>\n'
-    else:
-        keys = keyboard
-        text += code('-------------------\n')
-        if growing['geo'].lower() != 'none':
-            text += '📍http://maps.yandex.ru/?text=' + growing['geo'] + '\n'
-        text += '🔎' + pub_link + '🔎\n'
-        text += code('-------------------\n')
-
-    if growing['tags'] != 'none':
-        text += objects.italic('\n💼ТЕГИ: ')
-        for i in growing['tags']:
-            text += '#' + re.sub('_+', '_', i) + ' '
-        text = text[:-1] + '\n'
-
-    if growing['short_place'] == 'none' or growing['money'] == 'none' or growing['title'] == 'none':
-        text = pub_link
-
-    if growing['title'] != 'none':
-        search_restricted = re.search('водитель|яндекс|такси|уборщи', growing['title'].lower())
-        if search_restricted:
-            text = pub_link
-
-    if growing['org_name'] != 'none':
-        search_restricted = re.search('доброном', growing['org_name'].lower())
-        if search_restricted:
-            text = pub_link
-
-    if growing['experience'] != 'none':
-        search_restricted = re.search('6', growing['experience'].capitalize())
-        if search_restricted:
-            text = pub_link
-
-    return [text, keys, pub_link, growing]
-
-
-def poster(id_forward, array):
-    global last_date
-    if array[0] != array[2]:
-        message = Auth.bot.send_message(id_forward, array[0], reply_markup=array[1], parse_mode='HTML')
-        pic_text = instagram_former(array[3])
-        instagram_image(pic_text, 1080, channels['instagram'])
-        try:
-            instagram_image(pic_text, 1920, channels['tiktok'])
-        except IndexError and Exception as e:
-            Auth.bot.send_message(admins[0], str(e))
-        if id_forward == channels['main']:
-            print('last_date', datetime.fromtimestamp(last_date, tz).isoformat(' ', 'seconds'))
-            print('message.date', datetime.fromtimestamp(message.date, tz).isoformat(' ', 'seconds'))
-            if last_date < message.date:
-                last_date = message.date
-                start_editing = f"{code('Последний пост на канале jobsrb')}\n" \
-                                f"{bold('d:')} {code(iso(last_date))} {bold(' :d')}\n" \
-                                f"{bold('block:')} {block} {bold(':block')}"
-                try:
-                    Auth.bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
-                except IndexError and Exception as error:
-                    error = f"{bold('Проблемы с изменением стартового сообщения на канале')} " \
-                            f"{start_address}\n\n{start_editing}\n{error}"
-                    Auth.dev.message(text=error)
-    else:
-        text = array[3]['tag_picture'] + 'Что-то пошло не так: {\n' + \
-            objects.under(bold('link')) + ': ' + array[2] + '\n'
-        for i in array[3]:
-            if i == 'short_place' or i == 'money' or i == 'title':
-                text += objects.under(bold(i)) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
-            elif i != 'description':
-                text += str(i) + ': ' + re.sub('<', '&#60;', str(array[3].get(i))) + '\n'
-        Auth.bot.send_message(admins[0], text + '}', parse_mode='HTML')
-
-
-@dispatcher.callback_query_handler()
-async def callbacks(call):
+@dispatcher.channel_post_handler()
+async def detector(message: types.Message):
+    global next_post_id
     try:
-        if call['data'] == 'post':
-            search = re.search('🔎(.*?)🔎', call['message']['text'])
-            if search:
-                site_search = re.search(r'tut\.by|hh\.ru', search.group(1))
-                if site_search:
-                    post = tut_quest(search.group(1))
-                else:
-                    post = praca_quest(search.group(1))
-                poster(channels['main'], former(post[1], 'MainChannel', post[0]))
-                text = call['message']['text'] + code('\n✅ опубликован ✅')
-                await bot.edit_message_text(chat_id=call['message']['chat']['id'], text=text,
-                                            message_id=call['message']['message_id'],
-                                            reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
-            else:
-                Auth.dev.send_except(code('Не нашел в посте ссылку на вакансию'), message=call['message']['text'])
-
-        elif call['data'] == 'viewed':
-            text = call['message']['text'] + code('\n👀 просмотрен 👀')
-            await bot.edit_message_text(chat_id=call['message']['chat']['id'], text=text,
-                                        message_id=call['message']['message_id'],
-                                        reply_markup=None, parse_mode='HTML', disable_web_page_preview=True)
+        if message['chat']['id'] == channels['main'] and message['message_id'] + 1 > next_post_id:
+            await asyncio.sleep(60)
+            if message['message_id'] + 1 > next_post_id:
+                next_post_id = message['message_id'] + 1
+                edit_vars()
     except IndexError and Exception:
-        await Auth.dev.async_except(call)
+        await Auth.dev.async_except(message)
 
 
 @dispatcher.message_handler()
@@ -708,118 +393,25 @@ async def repeat_all_messages(message: types.Message):
         if message['chat']['id'] in admins:
             if message['text'].lower().startswith(('/enable', '/disable')):
                 if message['text'].lower().startswith('/disable'):
-                    new_block = 'True'
+                    text, new_block = f"Посты на канале {bold('не')} публикуются", 'True'
                 else:
-                    new_block = 'False'
+                    text, new_block = 'Посты на канале публикуются в штатном режиме', 'False'
                 if block != new_block:
                     block = new_block
-                    start_editing = f"{code('Последний пост на канале jobsrb')}\n" \
-                                    f"{bold('d:')} {code(iso(last_date))} {bold(' :d')}\n" \
-                                    f"{bold('block:')} {block} {bold(':block')}"
-                    try:
-                        await bot.edit_message_text(start_editing, -1001471643258, start_post, parse_mode='HTML')
-                        if block == 'True':
-                            text = 'Посты на канале не публикуются'
-                        else:
-                            text = 'Посты на канале публикуются в штатном режиме'
-                        await bot.send_message(message['chat']['id'], parse_mode='HTML',
-                                               text=f'Установлено новое значение:\n{bold(text)}')
-                    except IndexError and Exception as error:
-                        error = f"{bold('Проблемы с изменением стартового сообщения на канале')} " \
-                                f"{start_address}\n\n{start_editing}\n{error}"
-                        Auth.dev.executive(error)
-                else:
-                    if block == 'True':
-                        text = 'Посты на канале не публикуются'
-                    else:
-                        text = 'Посты на канале публикуются в штатном режиме'
-                    await bot.send_message(message.chat.id, parse_mode='HTML',
-                                           text=f'Уже установлено данное значение:\n{bold(text)}')
-
-            elif message['text'].startswith(('https://praca.by/vacancy/', 'https://')):
-                site_search = re.search(r'tut\.by|hh\.ru', message['text'])
-                if site_search:
-                    post = tut_quest(message['text'])
-                else:
-                    post = praca_quest(message['text'])
-                poster(message['chat']['id'], former(post[1], 'Private', post[0]))
-
+                    edit_vars()
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
             elif message['text'].lower().startswith('/pic'):
                 subbed = re.sub('/pic', '', message['text']).strip()
                 await bot.send_message(message['chat']['id'], image(subbed), parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/log'):
-                await bot.send_document(message['chat']['id'], open('log.txt', 'r'))
-
-            else:
-                await bot.send_message(message['chat']['id'], bold('ссылка не подошла'), parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
 
-def google(link):
-    global used
-    try:
-        used.insert_row([link], 1)
-    except IndexError and Exception:
-        used = gspread.service_account('person2.json').open('growing').worksheet('main')
-        used.insert_row([link], 1)
-
-
-def checker(address, main_sep, link_sep, quest):
-    global used_array
-    global unused_box
-    sleep(3)
-    now = time_now()
-    text = requests.get(address, headers=headers)
-    soup = BeautifulSoup(text.text, 'html.parser')
-    posts_raw = soup.find_all('div', class_=main_sep)
-    posts = []
-    for i in posts_raw:
-        link = i.find('a', class_=link_sep)
-        if link is not None:
-            posts.append(link.get('href'))
-    for i in posts:
-        if i not in used_array and i not in unused_box and (11 <= hour() < 21):
-            if (last_date + 120 * 60) < now and block != 'True':
-                google(i)
-                used_array.insert(0, i)
-                post = quest(i)
-                poster(channels['main'], former(post[1], 'MainChannel', post[0]))
-                Auth.dev.printer(f'{i} сделано')
-                sleep(3)
-            else:
-                unused_box.append(i)
-
-
-def praca_checker():
+def prc_checker():
     while True:
         try:
-            checker('https://praca.by/search/vacancies/', 'vac-small__column vac-small__column_2',
-                    'vac-small__title-link', praca_quest)
-        except IndexError and Exception:
-            Auth.dev.thread_except()
-
-
-def tut_checker():
-    while True:
-        try:
-            global unused_box
-            checker('https://jobs.tut.by/search/vacancy?order_by=publication_time&clusters=true&area=16&'
-                    'currency_code=BYR&enable_snippets=true&only_with_salary=true', 'vacancy-serp-item',
-                    'bloko-link', tut_quest)
-            if len(unused_box) > 0 and (11 <= hour() < 21):
-                if (last_date + 122 * 60) < time_now() and block != 'True':
-                    site_search = re.search(r'tut\.by|hh\.ru', unused_box[0])
-                    if site_search:
-                        post = tut_quest(unused_box[0])
-                    else:
-                        post = praca_quest(unused_box[0])
-                    google(unused_box[0])
-                    poster(channels['main'], former(post[1], 'MainChannel', post[0]))
-                    Auth.dev.printer(f'{unused_box[0]} сделано')
-                    unused_box.pop(0)
-                    sleep(3)
+            checker(parser=prc_parser, address='https://praca.by/search/vacancies/',
+                    link_class='vac-small__title-link', main_class='vac-small__column vac-small__column_2')
         except IndexError and Exception:
             Auth.dev.thread_except()
 
@@ -827,12 +419,11 @@ def tut_checker():
 def start(stamp):
     try:
         if os.environ.get('local'):
-            threads = [tut_checker, praca_checker]
+            threads = [prc_checker]
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            threads = [praca_checker] if start_search else None
-            alert = '' if start_search else f"\nОшибка с нахождением номера поста. {bold('Скрипты не запущены')}"
-            Auth.dev.start(stamp, alert)
+            threads = [prc_checker] if vars_search else None
+            Auth.dev.start(stamp, '' if vars_search else f"\n{bold('Скрипты не запущены')}")
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
         for thread_element in threads:
