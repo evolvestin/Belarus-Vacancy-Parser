@@ -400,6 +400,11 @@ async def repeat_all_messages(message: types.Message):
                     block = new_block
                     edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/reboot'):
+                text, _ = Auth.logs.reboot()
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
             elif message['text'].lower().startswith('/pic'):
                 subbed = re.sub('/pic', '', message['text']).strip()
                 await bot.send_message(message['chat']['id'], image(subbed), parse_mode='HTML')
@@ -416,13 +421,32 @@ def prc_checker():
             Auth.dev.thread_except()
 
 
+def auto_reboot():
+    reboot = None
+    while True:
+        try:
+            sleep(30)
+            date = datetime.now(tz)
+            if date.strftime('%H') == '01' and date.strftime('%M') == '59':
+                reboot = True
+                while date.strftime('%M') == '59':
+                    sleep(1)
+                    date = datetime.now(tz)
+            if reboot:
+                reboot = None
+                text, _ = Auth.logs.reboot()
+                Auth.dev.printer(text)
+        except IndexError and Exception:
+            Auth.dev.thread_except()
+
+
 def start(stamp):
     try:
         if os.environ.get('local'):
             threads = [prc_checker]
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            threads = [prc_checker] if vars_search else None
+            threads = [prc_checker, auto_reboot] if vars_search else None
             Auth.dev.start(stamp, '' if vars_search else f"\n{bold('Скрипты не запущены')}")
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
