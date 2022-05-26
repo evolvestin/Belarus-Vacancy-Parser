@@ -2,6 +2,7 @@ import os
 import re
 import emoji
 import base64
+import pickle
 import random
 import string
 import asyncio
@@ -13,8 +14,10 @@ from SQL import SQL
 from copy import copy
 from io import BytesIO
 from time import sleep
+from GDrive import Drive
 from typing import Union
 from aiogram import types
+from chrome import chrome
 from telegraph import upload
 from bs4 import BeautifulSoup
 from aiogram.utils import executor
@@ -22,9 +25,12 @@ from db.emoji_gen import emojis_path
 from PIL.ImageFont import FreeTypeFont
 from aiogram.dispatcher import Dispatcher
 from PIL import Image, ImageFont, ImageDraw
+from selenium.webdriver.common.by import By
 from statistics import median as median_function
 from datetime import datetime, timezone, timedelta
+from selenium.webdriver.support.ui import WebDriverWait
 from objects import code, html_link, html_secure, time_now
+from selenium.webdriver.support import expected_conditions as ec
 # =================================================================================================================
 stamp1 = time_now()
 
@@ -52,16 +58,26 @@ vars_link = f'https://t.me/UsefullCWLinks/{vars_post_id}'
 vars_search = query(vars_link, 'ID = (.*?) = ID.> (.*?) <.block = (.*?) = block')
 worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
 channels = {'main': -1001404073893, 'tiktok': -1001498374657, 'instagram': -1001186786378}
+#channels = {'main': 396978030, 'tiktok': 396978030, 'instagram': 396978030}
 tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_fonts(), []
 Auth = objects.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+#Auth = objects.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
-used_links = worksheet.col_values(1)
 block = vars_search.group(3) if vars_search else None
-bot, dispatcher = Auth.async_bot, Dispatcher(Auth.async_bot)
 next_post_id = int(vars_search.group(1)) if vars_search else None
+used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
+bot, drive, dispatcher = Auth.async_bot, Drive('person2.json'), Dispatcher(Auth.async_bot)
 last_date = datetime.fromisoformat(f'{vars_search.group(2)}+03:00') if vars_search else None
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 '
                          '(KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
+for google_folder in drive.files(only_folders=True):
+    if google_folder['name'] == 'sessions':
+        folder_id = google_folder['id']
+for google_file in drive.files(name_startswith='cookies', parents=google_folder_id):
+    if os.environ['cookies'] in google_file['name']:
+        drive.download_file(google_file['id'], 'cookies.pkl')
+        search_username = re.search(r'user: (.*)', google_file['description'])
+        inst_username = search_username.group(1) if search_username else None
 # =================================================================================================================
 
 
@@ -150,7 +166,6 @@ def checker(address: str, main_class: str, link_class: str, parser):
     for link_div in soup.find_all('div', attrs={'class': main_class}):
         link = link_div.find('a', attrs={'class': link_class})
         links.append(link.get('href')) if link else None
-    print(last_date + timedelta(hours=2), now)
     for link in links:
         if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
             if (last_date + timedelta(hours=2)) < now and block != 'True':
@@ -320,6 +335,35 @@ def poster(data: dict):
         Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
 
 
+def inst_poster(username: str, description: str, image_path: str):
+    driver = chrome(os.environ.get('local'))
+    driver.set_window_size(500, 1200)
+    driver.get(f'https://www.instagram.com/')
+    input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
+    for cookie in pickle.load(open('cookies.pkl', 'rb')):
+        driver.add_cookie(cookie)
+    driver.get(f'https://www.instagram.com/{username}/')
+    driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
+    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+    driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
+    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+    div = driver.find_element(By.XPATH, "//div[@role='dialog']")
+    div.find_elements(By.TAG_NAME, 'button')[1].click()
+    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
+    div.find_elements(By.TAG_NAME, 'button')[1].click()
+    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
+    driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
+    div.find_elements(By.TAG_NAME, 'button')[1].click()
+    title = driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label')
+    while title == driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label'):
+        sleep(1)
+    for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
+        div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
+    link = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
+    driver.close()
+    return link
+
+
 def prc_parser(link: str):
     data = {'link': link}
     soup = BeautifulSoup(requests.get(link).text, 'html.parser')
@@ -402,6 +446,18 @@ async def repeat_all_messages(message: types.Message):
                     edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
+            elif message['text'].lower().startswith('/test'):
+                inst_text = 'Все вакансии и удобный поиск по ним, а также вся контактная информация в нашем ' \
+                            'Telegram канале (ссылка в шапке профиля). #работа_в_минске #Вакансии_Минск ' \
+                            '#удаленная_работа_по_всей_беларуси #работа #вакансии_в_минске #работа_РБ ' \
+                            '#вакансии #удаленная_работа'
+                data = prc_parser('https://praca.by/vacancy/460578/')
+                inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                                  background_color=(254, 230, 68), original_width=1080, original_height=1080)
+                inst_poster(inst_username, inst_text, inst_path)
+                os.remove(inst_path)
+                await bot.send_message(message['chat']['id'], 'все ок', parse_mode='HTML')
+
             elif message['text'].lower().startswith('/reboot'):
                 text, _ = Auth.logs.reboot()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
@@ -444,11 +500,12 @@ def auto_reboot():
 def start(stamp):
     try:
         if os.environ.get('local'):
-            threads = [prc_checker]
+            threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            threads = [prc_checker, auto_reboot] if vars_search else None
-            Auth.dev.start(stamp, '' if vars_search else f"\n{bold('Скрипты не запущены')}")
+            threads = [prc_checker, auto_reboot] if vars_search and inst_username else None
+            alert = '' if vars_search and inst_username else f"\n{bold('Скрипты не запущены')}"
+            Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
         for thread_element in threads:
