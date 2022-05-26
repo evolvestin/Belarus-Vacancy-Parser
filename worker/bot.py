@@ -503,7 +503,7 @@ def start(stamp):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            threads = [prc_checker, auto_reboot] if vars_search and inst_username else None
+            threads = [prc_checker, auto_reboot] if vars_search and inst_username else []
             alert = '' if vars_search and inst_username else f"\n{bold('Скрипты не запущены')}"
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
