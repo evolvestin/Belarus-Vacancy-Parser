@@ -324,6 +324,8 @@ def poster(data: dict):
             with open(path, 'rb') as picture:
                 Auth.bot.send_document(channels[channel], picture)
             os.remove(path)
+        print('last_date', last_date)
+        print('message_date', message_date)
         if last_date < message_date:
             last_date = message_date
             edit_vars()
