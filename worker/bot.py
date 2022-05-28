@@ -7,9 +7,9 @@ import random
 import string
 import asyncio
 import gspread
-import objects
 import _thread
 import requests
+import functions
 from SQL import SQL
 from copy import copy
 from io import BytesIO
@@ -29,7 +29,7 @@ from selenium.webdriver.common.by import By
 from statistics import median as median_function
 from datetime import datetime, timezone, timedelta
 from selenium.webdriver.support.ui import WebDriverWait
-from objects import code, html_link, html_secure, time_now
+from functions import code, html_link, html_secure, time_now
 from selenium.webdriver.support import expected_conditions as ec
 # =================================================================================================================
 stamp1 = time_now()
@@ -63,13 +63,13 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
     return response, re.sub(r'\(\.\*\?\)', '{}', regex)
 
 
-objects.environmental_files()
+functions.environmental_files()
 worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
 channels = {'main': -1001404073893, 'tiktok': -1001498374657, 'instagram': -1001186786378}
 #channels = {'main': 396978030, 'tiktok': 396978030, 'instagram': 396978030}
-Auth = objects.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_font_paths(), []
-#Auth = objects.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+#Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
@@ -354,7 +354,7 @@ def poster(data: dict):
         text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Что-то пошло не так: &#123;\n"
         for key, value in data.items():
             selected = ['link', 'money', 'title', 'short_place']
-            text += f"{' ' * 6}{objects.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
+            text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
         Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
 
 
@@ -543,7 +543,7 @@ def start(stamp):
 
         for thread_element in threads:
             _thread.start_new_thread(thread_element, ())
-        executor.start_polling(dispatcher, allowed_updates=objects.allowed_updates)
+        executor.start_polling(dispatcher, allowed_updates=functions.allowed_updates)
     except IndexError and Exception:
         Auth.dev.thread_except()
 
