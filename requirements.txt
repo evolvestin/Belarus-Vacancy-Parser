@@ -1,7 +1,10 @@
 emoji==1.7.0
+aiogram==2.20
 Pillow==9.1.0
+heroku3==4.2.3
 gspread==3.6.0
-requests>=2.18.4
+Unidecode==1.2.0
+requests>=2.25.1
 e-objects>=1.2.0
 telegraph==1.4.0
 selenium==3.141.0
