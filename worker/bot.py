@@ -68,6 +68,7 @@ next_post_id = int(vars_search.group(1)) if vars_search else None
 used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
 bot, drive, dispatcher = Auth.async_bot, Drive('person2.json'), Dispatcher(Auth.async_bot)
 last_date = datetime.fromisoformat(f'{vars_search.group(2)}+03:00') if vars_search else None
+print('STARTING last_date', last_date)
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 '
                          '(KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 for google_folder in drive.files(only_folders=True):
