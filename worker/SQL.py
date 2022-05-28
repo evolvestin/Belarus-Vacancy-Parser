@@ -3,7 +3,7 @@ import re
 import sqlite3
 from typing import Union
 from datetime import datetime
-from objects import divide, time_now
+from functions import divide, time_now
 sql_patterns = ['database is locked', 'no such table']
 
 
