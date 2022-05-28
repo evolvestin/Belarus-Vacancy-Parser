@@ -42,7 +42,7 @@ def query(link: str, regex: str):
         return re.search(regex, BeautifulSoup(raw, 'html.parser').get_text(), flags=re.DOTALL)
 
 
-def get_fonts():
+def get_font_paths():
     paths = {}
     for path in os.listdir('fonts'):
         search = re.search(r'(.*?)-(.*)\.ttf', path)
@@ -52,23 +52,32 @@ def get_fonts():
     return paths
 
 
+def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*?);'):
+    commands = commands if type(commands) == list else [commands]
+    data, response = [], {'_': commands}
+    for command in thread_bot.get_my_commands(scope=None, language_code=None):
+        data.append(command.description) if command.command in commands else None
+    for line in '\n'.join(data).split('\n'):
+        search = re.search(regex, line)
+        response.update({search.group(1): search.group(2)}) if search else None
+    return response, re.sub(r'\(\.\*\?\)', '{}', regex)
+
+
 objects.environmental_files()
-vars_post_id = os.environ['post']
-vars_link = f'https://t.me/UsefullCWLinks/{vars_post_id}'
-vars_search = query(vars_link, 'ID = (.*?) = ID.> (.*?) <.block = (.*?) = block')
 worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
 channels = {'main': -1001404073893, 'tiktok': -1001498374657, 'instagram': -1001186786378}
 #channels = {'main': 396978030, 'tiktok': 396978030, 'instagram': 396978030}
-tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_fonts(), []
 Auth = objects.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_font_paths(), []
 #Auth = objects.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
-block = vars_search.group(3) if vars_search else None
-next_post_id = int(vars_search.group(1)) if vars_search else None
+server, query_regex = vars_query(Auth.bot, 'vars')
+server['post_id'] = int(server['post_id']) if server.get('post_id') else None
 used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
+server['date'] = datetime.fromisoformat(server['date']) if server.get('date') else None
 bot, drive, dispatcher = Auth.async_bot, Drive('person2.json'), Dispatcher(Auth.async_bot)
-last_date = datetime.fromisoformat(f'{vars_search.group(2)}+03:00') if vars_search else None
-print('STARTING last_date', last_date)
+
+print('STARTING server[date]', server['date'])
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 '
                          '(KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 for google_folder in drive.files(only_folders=True):
@@ -131,16 +140,28 @@ def height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regula
 
 
 def edit_vars():
-    last_date_iso = re.sub(r'\+.*', '', last_date.isoformat(' ', 'seconds'))
-    text = f"{code('Последний пост на канале с вакансиями')}\n" \
-           f"{bold('ID =')} {next_post_id} {bold('= ID')}\n" \
-           f"{bold('&#62;')} {code(last_date_iso)} {bold('&#60;')}\n" \
-           f"{bold('block =')} {block} {bold('= block')}"
+    commands = iter_commands(server, query_regex)
+    commands.update({'enable': 'Включить постинг на канале', 'disable': 'Отключить постинг на канале'})
+    list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
     try:
-        Auth.bot.edit_message_text(text, -1001471643258, vars_post_id, parse_mode='HTML')
+        Auth.bot.set_my_commands(list_commands)
     except IndexError and Exception as error:
-        Auth.dev.message(text=f"{bold('Проблема с изменением переменных на канале')} "
-                              f"{vars_link}\n\n{html_secure(text)}\n{html_secure(error)}")
+        Auth.dev.message(text=f"{bold(f'Проблема с изменением переменных в боте @{Auth.username}')} "
+                              f"\n\n{html_secure(server)}\n{html_secure(error)}")
+
+
+def iter_commands(data: dict, var_format: str):
+    commands, command_value, command_values = data.get('_', []), [], []
+    for key, value in data.items():
+        if key != '_':
+            if len(f"{'n'.join(command_value)}\n{var_format.format(key, value)}") <= 256:
+                command_value.append(var_format.format(key, value))
+            else:
+                command_values.append('\n'.join(command_value))
+                command_value = [var_format.format(key, value)]
+    else:
+        command_values.append('\n'.join(command_value))
+    return {command: value for command, value in zip(commands, command_values)}
 
 
 def inst_handler(data: dict):
@@ -169,7 +190,7 @@ def checker(address: str, main_class: str, link_class: str, parser):
         links.append(link.get('href')) if link else None
     for link in links:
         if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
-            if (last_date + timedelta(hours=2)) < now and block != 'True':
+            if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
                 google(link)
                 used_links.insert(0, link)
                 poster(parser(link))
@@ -303,17 +324,17 @@ def tg_handler(data: dict):
     map_link = f"http://maps.yandex.ru/?text={data['geo']}" if data.get('geo') else None
     text += f"\n📍 {html_link(map_link, 'На карте')}\n" if map_link else ''
     text += f"\n🔎 {html_link(data['link'], 'Источник')}\n" if data.get('link') else ''
-    text += f'\n🆔 {italic(next_post_id)}'
+    text += f"\n🆔 {italic(server['post_id'])}"
     text += f"\n{italic('💼ТЕГИ:')} #{' #'.join(data['tags'])}\n" if data.get('tags') else ''
     return {'text': text, 'image': picture}
 
 
 def poster(data: dict):
-    global last_date, next_post_id
+    global server
     tg = tg_handler(data)
     if tg.get('text'):
         message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
-        next_post_id = message.message_id + 1
+        server['post_id'] = message.message_id + 1
         message_date = datetime.fromtimestamp(message.date, tz)
         inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                           background_color=(254, 230, 68), original_width=1080, original_height=1080)
@@ -325,10 +346,9 @@ def poster(data: dict):
             with open(path, 'rb') as picture:
                 Auth.bot.send_document(channels[channel], picture)
             os.remove(path)
-        print('last_date', last_date)
-        print('message_date', message_date)
-        if last_date < message_date:
-            last_date = message_date
+        if server['date'] < message_date:
+            print('date', server['date'], 'message_date', message_date)
+            server['date'] = message_date
             edit_vars()
     else:
         text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Что-то пошло не так: &#123;\n"
@@ -423,12 +443,12 @@ def prc_parser(link: str):
 
 @dispatcher.channel_post_handler()
 async def detector(message: types.Message):
-    global next_post_id
+    global server
     try:
-        if message['chat']['id'] == channels['main'] and message['message_id'] + 1 > next_post_id:
+        if message['chat']['id'] == channels['main'] and message['message_id'] + 1 > server['post_id']:
             await asyncio.sleep(60)
-            if message['message_id'] + 1 > next_post_id:
-                next_post_id = message['message_id'] + 1
+            if message['message_id'] + 1 > server['post_id']:
+                server['post_id'] = message['message_id'] + 1
                 edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
@@ -436,16 +456,31 @@ async def detector(message: types.Message):
 
 @dispatcher.message_handler()
 async def repeat_all_messages(message: types.Message):
-    global block
+    global server
     try:
         if message['chat']['id'] in admins:
-            if message['text'].lower().startswith(('/enable', '/disable')):
+            if message['text'].lower().startswith('/reboot'):
+                text, _ = Auth.logs.reboot()
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/pic'):
+                subbed = re.sub('/pic', '', message['text']).strip()
+                await bot.send_message(message['chat']['id'], image(subbed), parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/vars'):
+                text = f"{code('Последний пост на канале с вакансиями')}\n" \
+                       f"{bold('ID =')} {server['post_id']} {bold('= ID')}\n" \
+                       f"{bold('&#62;')} {code(server['date'])} {bold('&#60;')}\n" \
+                       f"{bold('block =')} {server['block']} {bold('= block')}"
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
+            elif message['text'].lower().startswith(('/enable', '/disable')):
                 if message['text'].lower().startswith('/disable'):
                     text, new_block = f"Посты на канале {bold('не')} публикуются", 'True'
                 else:
                     text, new_block = 'Посты на канале публикуются в штатном режиме', 'False'
-                if block != new_block:
-                    block = new_block
+                if server['block'] != new_block:
+                    server['block'] = new_block
                     edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
@@ -461,13 +496,6 @@ async def repeat_all_messages(message: types.Message):
                 os.remove(inst_path)
                 await bot.send_message(message['chat']['id'], 'все ок', parse_mode='HTML')
 
-            elif message['text'].lower().startswith('/reboot'):
-                text, _ = Auth.logs.reboot()
-                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/pic'):
-                subbed = re.sub('/pic', '', message['text']).strip()
-                await bot.send_message(message['chat']['id'], image(subbed), parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -502,12 +530,14 @@ def auto_reboot():
 
 def start(stamp):
     try:
+        threads = [auto_reboot]
         if os.environ.get('local'):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            threads = [prc_checker, auto_reboot] if vars_search and inst_username else []
-            alert = '' if vars_search and inst_username else f"\n{bold('Скрипты не запущены')}"
+            alert = f"\n{bold('Скрипты не запущены')}"
+            if all(server.get(key) for key in ['date', 'block', 'post_id']) and inst_username:
+                _, alert = threads.append(prc_checker), ''
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
