@@ -236,12 +236,11 @@ def prc_parser(link: str):
 async def detector(message: types.Message):
     global server
     try:
-        if message['chat']['id'] == channels['main'] and message['message_id'] + 1 > server['post_id']:
+        if message['chat']['id'] == channels['main']:
             await asyncio.sleep(10)
             server['post_id'] = message['message_id'] + 1
-            message_date = datetime.fromtimestamp(message['date'], tz)
-            print('CATCHING date', server['date'], 'message_date', message_date)
-            server['date'] = message_date
+            print('CATCHING date', server['date'], 'message_date', datetime.fromtimestamp(message['date'], tz))
+            server['date'] = datetime.fromtimestamp(message['date'], tz)
             await edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
@@ -318,7 +317,6 @@ async def site_handlers():
         for link_div in soup.find_all('div', attrs={'class': main_class}):
             link = link_div.find('a', attrs={'class': link_class})
             links.append(link.get('href')) if link else None
-        print('links', links)
         for link in links:
             if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
                 if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
@@ -370,10 +368,8 @@ async def site_handlers():
         else:
             message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
             server['post_id'] = message.message_id + 1
-            message_date = datetime.fromtimestamp(message.date, tz)
-            print('POSTING date', server['date'], 'message_date', message_date)
-            server['date'] = message_date
-
+            print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
+            server['date'] = datetime.fromtimestamp(message.date, tz)
             inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                               background_color=(254, 230, 68), original_width=1080, original_height=1080)
             inst_description = inst_text.generator(post_id=data.get('post_id', 0),
