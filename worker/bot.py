@@ -366,6 +366,7 @@ async def site_handlers():
                 text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
             await bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
         else:
+            await bot.send_message(admins[0], tg['text'], parse_mode='HTML')
             message = await bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
             server['post_id'] = message['message_id'] + 1
             message_date = datetime.fromtimestamp(message['date'], tz)
