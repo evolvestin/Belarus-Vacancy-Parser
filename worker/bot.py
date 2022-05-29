@@ -390,7 +390,7 @@ async def site_handlers():
             await site_handler(parser=prc_parser, main_class='vac-small__column vac-small__column_2',
                                address='https://praca.by/search/vacancies/', link_class='vac-small__title-link')
         except IndexError and Exception:
-            Auth.dev.async_except()
+            await Auth.dev.async_except()
 
 
 def start(stamp):
