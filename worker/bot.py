@@ -237,10 +237,12 @@ async def detector(message: types.Message):
     global server
     try:
         if message['chat']['id'] == channels['main'] and message['message_id'] + 1 > server['post_id']:
-            await asyncio.sleep(60)
-            if message['message_id'] + 1 > server['post_id']:
-                server['post_id'] = message['message_id'] + 1
-                await edit_vars()
+            await asyncio.sleep(10)
+            server['post_id'] = message['message_id'] + 1
+            message_date = datetime.fromtimestamp(message['date'], tz)
+            print('CATCHING date', server['date'], 'message_date', message_date)
+            server['date'] = message_date
+            await edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -364,12 +366,14 @@ async def site_handlers():
             for key, value in data.items():
                 selected = ['link', 'money', 'title', 'Причина', 'short_place']
                 text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
-            await bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+            Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
         else:
-            await bot.send_message(admins[0], tg['text'], parse_mode='HTML')
-            message = await bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
-            server['post_id'] = message['message_id'] + 1
-            message_date = datetime.fromtimestamp(message['date'], tz)
+            message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
+            server['post_id'] = message.message_id + 1
+            message_date = datetime.fromtimestamp(message.date, tz)
+            print('POSTING date', server['date'], 'message_date', message_date)
+            server['date'] = message_date
+
             inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                               background_color=(254, 230, 68), original_width=1080, original_height=1080)
             inst_description = inst_text.generator(post_id=data.get('post_id', 0),
@@ -381,10 +385,6 @@ async def site_handlers():
             with open(inst_path, 'rb') as picture:
                 Auth.bot.send_document(channels['instagram'], picture)
             os.remove(inst_path)
-            if server['date'] < message_date:
-                print('date', server['date'], 'message_date', message_date)
-                server['date'] = message_date
-                await edit_vars()
 
     while True:
         try:
