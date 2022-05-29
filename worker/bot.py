@@ -40,12 +40,12 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 
 functions.environmental_files()
-channels = {'main': 396978030, 'instagram': 396978030}
-#channels = {'main': -1001404073893, 'instagram': -1001186786378}
+#channels = {'main': 396978030, 'instagram': 396978030}
+channels = {'main': -1001404073893, 'instagram': -1001186786378}
 tz, admins, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], []
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
-Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
-#Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+#Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
