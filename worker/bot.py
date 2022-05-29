@@ -40,12 +40,12 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 
 functions.environmental_files()
-#channels = {'main': 396978030, 'instagram': 396978030}
-channels = {'main': -1001404073893, 'instagram': -1001186786378}
+channels = {'main': 396978030, 'instagram': 396978030}
+#channels = {'main': -1001404073893, 'instagram': -1001186786378}
 tz, admins, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], []
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
-#Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
-Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+#Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
@@ -283,9 +283,8 @@ async def repeat_all_messages(message: types.Message):
                                                        place=data.get('short_place', ''),
                                                        vacancy_tags=data.get('tags', []))
                 inst_link = await inst_poster(inst_username, inst_description, inst_path)
-                Auth.bot.send_message(admins[0], text=inst_link)
                 os.remove(inst_path)
-                await bot.send_message(message['chat']['id'], 'все ок', parse_mode='HTML')
+                await bot.send_message(message['chat']['id'], text=inst_link, parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -317,6 +316,7 @@ async def site_handlers():
         for link_div in soup.find_all('div', attrs={'class': main_class}):
             link = link_div.find('a', attrs={'class': link_class})
             links.append(link.get('href')) if link else None
+        print('links', links)
         for link in links:
             if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
                 if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
