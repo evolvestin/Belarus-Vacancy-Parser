@@ -42,7 +42,7 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 functions.environmental_files()
 #channels = {'main': 396978030, 'instagram': 396978030}
 channels = {'main': -1001404073893, 'instagram': -1001186786378}
-tz, admins, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], []
+tz, admins = timezone(timedelta(hours=3)), [396978030, 470292601]
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
 #Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
@@ -75,17 +75,6 @@ def italic(text, md=False):
     return f'__{text}__' if md else f'<i>{text}</i>'
 
 
-async def edit_vars():
-    commands = iter_commands(server, query_regex)
-    commands.update({'enable': 'Включить постинг на канале', 'disable': 'Отключить постинг на канале'})
-    list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
-    try:
-        await bot.set_my_commands(list_commands)
-    except IndexError and Exception as error:
-        Auth.dev.message(text=f"{bold(f'Проблема с изменением переменных в боте @{Auth.username}')} "
-                              f"\n\n{html_secure(server)}\n{html_secure(error)}")
-
-
 def inst_handler(data: dict):
     array = [bold(f"👨🏻‍💻 {data['title']}", md=True)] if data.get('title') else []
     array.append(f"🏙 {data['short_place']}") if data.get('short_place') else None
@@ -95,6 +84,18 @@ def inst_handler(data: dict):
     array.extend([bold(line, md=True) for line in ['📘 Контакты', '💎 В Telegram канале', '🔗 Ссылка в профиле']])
     array.append(f"\n🔍 Пиши в поиске 🆔 {data['post_id']}") if data.get('post_id') else None
     return '\n'.join(array)
+
+
+async def edit_vars():
+    commands = iter_commands(server, query_regex)
+    commands.update({'inst_enable': 'Включить постинг в Instagram', 'inst_disable': 'Отключить постинг в Instagram',
+                     'enable': 'Включить постинг на канале', 'disable': 'Отключить постинг на канале'})
+    list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
+    try:
+        await bot.set_my_commands(list_commands)
+    except IndexError and Exception as error:
+        Auth.dev.message(text=f"{bold(f'Проблема с изменением переменных в боте @{Auth.username}')} "
+                              f"\n\n{html_secure(server)}\n{html_secure(error)}")
 
 
 def iter_commands(data: dict, var_format: str):
@@ -309,45 +310,8 @@ def auto_reboot():
 
 
 async def site_handlers():
-    async def poster(data: dict):
-        global server
-        tg = tg_handler(data)
-        if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
-            data['Причина'] = 'Отсутствуют поля'
-        elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
-            data['Причина'] = 'Неподходящая деятельность'
-        elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
-            data['Причина'] = f"{'Добро'}ном"
-        elif data.get('experience') and re.search('6', data['experience']):
-            data['Причина'] = 'Слишком много опыта'
-
-        if data.get('Причина'):
-            text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Не опубликовано: &#123;\n"
-            for key, value in data.items():
-                selected = ['link', 'money', 'title', 'Причина', 'short_place']
-                text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
-            Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
-            Auth.dev.printer(f"Не опубликовано: {data.get('link')}")
-        else:
-            message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
-            server['post_id'] = message.message_id + 1
-            print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
-            server['date'] = datetime.fromtimestamp(message.date, tz)
-            inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                              background_color=(254, 230, 68), original_width=1080, original_height=1080)
-            inst_description = inst_text.generator(post_id=data.get('post_id', 0),
-                                                   place=data.get('short_place', ''),
-                                                   vacancy_tags=data.get('tags', []))
-            inst_link = await inst_poster(inst_username, inst_description, inst_path)
-            with open(inst_path, 'rb') as picture:
-                Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
-            with open(inst_path, 'rb') as picture:
-                Auth.bot.send_document(channels['instagram'], picture)
-            os.remove(inst_path)
-            Auth.dev.printer(f"Опубликовано: {data.get('link')}")
-
     async def site_handler(address: str, main_class: str, link_class: str, parser):
-        global used_links, unused_links, worksheet
+        global used_links, worksheet
         now, links = datetime.now(tz), []
         if (server['date'] + timedelta(hours=2)) < now and \
                 server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
@@ -368,11 +332,11 @@ async def site_handlers():
                             await asyncio.sleep(5)
                         else:
                             service_account = gspread.service_account('person2.json')
-                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')  #
+                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')#
                             worksheet = service_account.open('Belarus-Vacancies').worksheet('main')
                             link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
-                        # else:
-                        #   raise error
+                        #else:
+                        #  raise error
                     link_range[0].value = link
                     worksheet.update_cells(link_range)
                     used_links.append(link)
@@ -381,6 +345,42 @@ async def site_handlers():
                     await poster(data)
                     await asyncio.sleep(5)
         await asyncio.sleep(5)
+
+    async def poster(data: dict):
+        global server
+        tg = tg_handler(data)
+        if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
+            data['Причина'] = 'Отсутствуют поля'
+        elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
+            data['Причина'] = 'Неподходящая деятельность'
+        elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
+            data['Причина'] = f"{'Добро'}ном"
+        elif data.get('experience') and re.search('6', data['experience']):
+            data['Причина'] = 'Слишком много опыта'
+
+        if data.get('Причина'):
+            text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Не опубликовано: &#123;\n"
+            for key, value in data.items():
+                selected = ['link', 'money', 'title', 'Причина', 'short_place']
+                text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
+            Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+        else:
+            message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
+            server['post_id'] = message.message_id + 1
+            print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
+            server['date'] = datetime.fromtimestamp(message.date, tz)
+            inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                              background_color=(254, 230, 68), original_width=1080, original_height=1080)
+            inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                                                   place=data.get('short_place', ''),
+                                                   vacancy_tags=data.get('tags', []))
+            inst_link = await inst_poster(inst_username, inst_description, inst_path)
+            with open(inst_path, 'rb') as picture:
+                Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
+            with open(inst_path, 'rb') as picture:
+                Auth.bot.send_document(channels['instagram'], picture)
+            os.remove(inst_path)
+        Auth.dev.printer(f"{'Не о' if data.get('Причина') else 'О'}публиковано: {data.get('link')}")
 
     while True:
         try:
