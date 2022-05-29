@@ -172,7 +172,7 @@ async def inst_poster(username: str, description: str, image_path: str):
         response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
         driver.close()
     except IndexError and Exception:
-        await Auth.dev.executive(None)
+        Auth.dev.executive(None)
     return str(response)
 
 
@@ -266,10 +266,9 @@ async def repeat_all_messages(message: types.Message):
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
             elif message['text'].lower().startswith(('/enable', '/disable')):
+                text, block = 'Посты на канале публикуются в штатном режиме', 'False'
                 if message['text'].lower().startswith('/disable'):
                     text, block = f"Посты на канале {bold('не')} публикуются", 'True'
-                else:
-                    text, block = 'Посты на канале публикуются в штатном режиме', 'False'
                 if server['block'] != block:
                     server['block'] = block
                     await edit_vars()
@@ -310,43 +309,6 @@ def auto_reboot():
 
 
 async def site_handlers():
-    async def site_handler(address: str, main_class: str, link_class: str, parser):
-        global used_links, unused_links, worksheet
-        now, links = datetime.now(tz), []
-        soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
-        for link_div in soup.find_all('div', attrs={'class': main_class}):
-            link = link_div.find('a', attrs={'class': link_class})
-            links.append(link.get('href')) if link else None
-        for link in links:
-            if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
-                if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
-                    try:
-                        link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
-                    except IndexError and Exception as error:
-                        if 'exceeds grid limits' in str(error):
-                            worksheet.add_rows(1000)
-                            worksheet.delete_rows(1, 1000)
-                            used_links = worksheet.col_values(1)
-                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
-                            sleep(5)
-                        else:
-                            service_account = gspread.service_account('person2.json')
-                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')#
-                            worksheet = service_account.open('Belarus-Vacancies').worksheet('main')
-                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
-                        #else:
-                        #   raise error
-                    link_range[0].value = link
-                    worksheet.update_cells(link_range)
-                    used_links.append(link)
-                    data = parser(link)
-                    data['post_id'] = copy(server['post_id'])
-                    await poster(data)
-                    Auth.dev.printer(f'Обработано: {link}')
-                else:
-                    unused_links.append(link)
-        sleep(30)
-
     async def poster(data: dict):
         global server
         tg = tg_handler(data)
@@ -365,6 +327,7 @@ async def site_handlers():
                 selected = ['link', 'money', 'title', 'Причина', 'short_place']
                 text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
             Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+            Auth.dev.printer(f"Не опубликовано: {data.get('link')}")
         else:
             message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
             server['post_id'] = message.message_id + 1
@@ -381,11 +344,49 @@ async def site_handlers():
             with open(inst_path, 'rb') as picture:
                 Auth.bot.send_document(channels['instagram'], picture)
             os.remove(inst_path)
+            Auth.dev.printer(f"Опубликовано: {data.get('link')}")
+
+    async def site_handler(address: str, main_class: str, link_class: str, parser):
+        global used_links, unused_links, worksheet
+        now, links = datetime.now(tz), []
+        if (server['date'] + timedelta(hours=2)) < now and \
+                server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
+            soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
+            for link_div in soup.find_all('div', attrs={'class': main_class}):
+                link = link_div.find('a', attrs={'class': link_class})
+                links.append(link.get('href')) if link else None
+            for link in links:
+                if (server['date'] + timedelta(hours=2)) < now and link not in used_links:
+                    try:
+                        link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                    except IndexError and Exception as error:
+                        if 'exceeds grid limits' in str(error):
+                            worksheet.add_rows(1000)
+                            worksheet.delete_rows(1, 1000)
+                            used_links = worksheet.col_values(1)
+                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                            await asyncio.sleep(5)
+                        else:
+                            service_account = gspread.service_account('person2.json')
+                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')  #
+                            worksheet = service_account.open('Belarus-Vacancies').worksheet('main')
+                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                        # else:
+                        #   raise error
+                    link_range[0].value = link
+                    worksheet.update_cells(link_range)
+                    used_links.append(link)
+                    data = parser(link)
+                    data['post_id'] = copy(server['post_id'])
+                    await poster(data)
+                    await asyncio.sleep(5)
+        await asyncio.sleep(5)
 
     while True:
         try:
-            await site_handler(parser=prc_parser, main_class='vac-small__column vac-small__column_2',
-                               address='https://praca.by/search/vacancies/', link_class='vac-small__title-link')
+            modifier = random.choices(['', '?search[city][Минск]=1'], weights=[0.4, 0.6], k=1)[0]
+            await site_handler(address=f'https://praca.by/search/vacancies/{modifier}', parser=prc_parser,
+                               main_class='vac-small__column vac-small__column_2', link_class='vac-small__title-link')
         except IndexError and Exception:
             await Auth.dev.async_except()
 
@@ -402,7 +403,7 @@ def start(stamp):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            if all(server.get(key) for key in ['date', 'block', 'post_id']) and inst_username:
+            if all(server.get(key) for key in ['date', 'block', 'post_id', 'inst_block']) and inst_username:
                 alert, async_threads = '', [site_handlers]
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
