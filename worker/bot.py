@@ -1,55 +1,31 @@
 import os
 import re
-import emoji
-import base64
 import pickle
 import random
-import string
 import asyncio
 import gspread
 import _thread
 import requests
+import inst_text
 import functions
-from SQL import SQL
+from PIL import Image
 from copy import copy
-from io import BytesIO
 from time import sleep
+from image import image
 from GDrive import Drive
 from typing import Union
 from aiogram import types
 from chrome import chrome
-from telegraph import upload
 from bs4 import BeautifulSoup
 from aiogram.utils import executor
-from db.emoji_gen import emojis_path
-from PIL.ImageFont import FreeTypeFont
 from aiogram.dispatcher import Dispatcher
-from PIL import Image, ImageFont, ImageDraw
 from selenium.webdriver.common.by import By
-from statistics import median as median_function
 from datetime import datetime, timezone, timedelta
+from functions import time_now, html_link, html_secure
 from selenium.webdriver.support.ui import WebDriverWait
-from functions import code, html_link, html_secure, time_now
 from selenium.webdriver.support import expected_conditions as ec
 # =================================================================================================================
 stamp1 = time_now()
-
-
-def query(link: str, regex: str):
-    soup = BeautifulSoup(requests.get(f'{link}?embed=1').text, 'html.parser')
-    if soup.find('div', class_='tgme_widget_message_error') is None:
-        raw = str(soup.find('div', class_='tgme_widget_message_text js-message_text')).replace('<br/>', '\n')
-        return re.search(regex, BeautifulSoup(raw, 'html.parser').get_text(), flags=re.DOTALL)
-
-
-def get_font_paths():
-    paths = {}
-    for path in os.listdir('fonts'):
-        search = re.search(r'(.*?)-(.*)\.ttf', path)
-        if search:
-            paths[search.group(1)] = paths.get(search.group(1), {})
-            paths[search.group(1)][search.group(2)] = f'fonts/{path}'
-    return paths
 
 
 def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*?);'):
@@ -64,12 +40,12 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 
 functions.environmental_files()
-worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
-channels = {'main': -1001404073893, 'tiktok': -1001498374657, 'instagram': -1001186786378}
-#channels = {'main': 396978030, 'tiktok': 396978030, 'instagram': 396978030}
-Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
-tz, admins, font_paths, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], get_font_paths(), []
+#channels = {'main': 396978030, 'instagram': 396978030}
+channels = {'main': -1001404073893, 'instagram': -1001186786378}
+tz, admins, unused_links = timezone(timedelta(hours=3)), [396978030, 470292601], []
+worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
 #Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
+Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
@@ -99,55 +75,26 @@ def italic(text, md=False):
     return f'__{text}__' if md else f'<i>{text}</i>'
 
 
-def font(size: int, family: str = 'OpenSans', weight: str = 'Regular'):
-    font_type = font_paths.get(family, font_paths.get('OpenSans'))
-    return ImageFont.truetype(font_type.get(weight, font_type.get('Regular')), size)
-
-
-def width(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
-    emojis = emoji.emoji_list(text)
-    emoji_size = size + (size * 0.4)
-    indent = int(emoji_size + emoji_size * 0.11) * len(emojis)
-    text = emoji.replace_emoji(text, replace='') if emojis else text
-    return FreeTypeFont.getbbox(font(size, family, weight), text)[2] + indent
-
-
-def google(link):
-    global worksheet
-    try:
-        worksheet.insert_row([link], 1)
-    except IndexError and Exception:
-        worksheet = gspread.service_account('person2.json').open('growing').worksheet('main')
-        worksheet.insert_row([link], 1)
-
-
-def min_height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
-    letter_heights = [FreeTypeFont.getbbox(font(size, family, weight), i, anchor='lt')[3] for i in list(text)]
-    descender_heights = [FreeTypeFont.getbbox(font(size, family, weight), i, anchor='ls')[3] for i in list(text)]
-    result = [element1 - element2 for (element1, element2) in zip(letter_heights, descender_heights)]
-    if emoji.emoji_list(text):
-        return max(result)
-    return median_function(result) if result else 0
-
-
-def height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regular'):
-    emoji_size = size + (size * 0.4)
-    response = int(emoji_size - emoji_size * 0.22) if emoji.emoji_list(text) else None
-    if response is None:
-        result = [FreeTypeFont.getbbox(font(size, family, weight), text, anchor=anchor)[3] for anchor in ['lt', 'ls']]
-        response = result[0] - result[1]
-    return response
-
-
-def edit_vars():
+async def edit_vars():
     commands = iter_commands(server, query_regex)
     commands.update({'enable': 'Включить постинг на канале', 'disable': 'Отключить постинг на канале'})
     list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
     try:
-        Auth.bot.set_my_commands(list_commands)
+        await bot.set_my_commands(list_commands)
     except IndexError and Exception as error:
         Auth.dev.message(text=f"{bold(f'Проблема с изменением переменных в боте @{Auth.username}')} "
                               f"\n\n{html_secure(server)}\n{html_secure(error)}")
+
+
+def inst_handler(data: dict):
+    array = [bold(f"👨🏻‍💻 {data['title']}", md=True)] if data.get('title') else []
+    array.append(f"🏙 {data['short_place']}") if data.get('short_place') else None
+    array.append(f"🏅 Опыт работы ➡ {data['experience']}") if data.get('experience') else None
+    array.append(f"👨🏻‍🎓 Образование ➡ {data['education']}") if data.get('education') else None
+    array.append(bold(f"💸 З/П {data['money']} руб.", md=True) + '\n') if data.get('money') else None
+    array.extend([bold(line, md=True) for line in ['📘 Контакты', '💎 В Telegram канале', '🔗 Ссылка в профиле']])
+    array.append(f"\n🔍 Пиши в поиске 🆔 {data['post_id']}") if data.get('post_id') else None
+    return '\n'.join(array)
 
 
 def iter_commands(data: dict, var_format: str):
@@ -164,151 +111,10 @@ def iter_commands(data: dict, var_format: str):
     return {command: value for command, value in zip(commands, command_values)}
 
 
-def inst_handler(data: dict):
-    array = [bold(f"👨🏻‍💻 {data['title']}", md=True)] if data.get('title') else []
-    array.append(f"🏙 {data['place']}") if data.get('place') else None
-    array.append(f"🏅 Опыт работы ➡ {data['experience']}") if data.get('experience') else None
-    array.append(f"👨🏻‍🎓 Образование ➡ {data['education']}") if data.get('education') else None
-    array.append(bold(f"💸 З/П {data['money']} руб.", md=True)) if data.get('money') else None
-    array.append(f"\n{bold('📘 Контакты', md=True)}")
-    for key in ['org_name', 'contact', 'numbers']:
-        array.append(data[key]) if data.get(key) else None
-    array.append(f"{data['email']} ➡ Резюме") if data.get('email') else None
-    if data.get('email') is None and data.get('numbers') is None:
-        array.append(bold('🔋 Источник в нашем telegram канале ➡ Ссылка в профиле', md=True))
-    array.append(f"🚇 {data['underground']}") if data.get('underground') else None
-    return '\n'.join(array)
-
-
-def checker(address: str, main_class: str, link_class: str, parser):
-    global used_links, unused_links
-    sleep(3)
-    now, links = datetime.now(tz), []
-    soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
-    for link_div in soup.find_all('div', attrs={'class': main_class}):
-        link = link_div.find('a', attrs={'class': link_class})
-        links.append(link.get('href')) if link else None
-    for link in links:
-        if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
-            if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
-                google(link)
-                used_links.insert(0, link)
-                poster(parser(link))
-                Auth.dev.printer(f'{link} сделано')
-                sleep(3)
-            else:
-                unused_links.append(link)
-
-
-def image(text: str, return_link=False,
-          background: Union[Image.open, Image.new] = None,
-          font_size: int = 300, font_family: str = 'OpenSans', font_weight: str = 'Regular',
-          original_width: int = 1000, original_height: int = 1000, text_align: str = 'center',
-          left_indent: int = 50, top_indent: int = 50, left_indent_2: int = 0, top_indent_2: int = 0,
-          text_color: tuple[int, int, int] = (0, 0, 0), background_color: tuple[int, int, int] = (256, 256, 256)):
-    file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.jpg"
-    mask, family, spacing, response, coefficient, modal_height = None, font_family, 0, None, 0.6, 0
-    original_width = background.getbbox()[2] if background and original_width == 1000 else original_width
-    original_height = background.getbbox()[3] if background and original_height == 1000 else original_height
-    db, original_scale = SQL(emojis_path), (original_width, original_height)
-    original_height -= top_indent * 2 + top_indent_2
-    original_width -= left_indent * 2 + left_indent_2
-    size = font_size if font_size != 300 else original_width // 3
-    background = copy(background) or Image.new('RGB', original_scale, background_color)
-    while spacing < modal_height * coefficient or spacing == 0:
-        skip, layers, heights, weights = False, [], [], []
-        mask = Image.new('RGBA', original_scale, (0, 0, 0, 0))
-        for line in text.strip().split('\n'):
-            line_weight, layer_array = font_weight, []
-            if line.startswith('**') and line.endswith('**'):
-                line_weight, line = 'Bold', line.strip('**')
-            if line.startswith('__') and line.endswith('__'):
-                line_weight, line = 'Italic', line.strip('__')
-            if line:
-                for word in re.sub(r'\s+', ' ', line).strip().split(' '):
-                    if width(word, size, family, line_weight) > original_width:
-                        skip = True
-                        break
-                    if width(' '.join(layer_array + [word]), size, family, line_weight) > original_width:
-                        weights.append(line_weight), layers.append(' '.join(layer_array))
-                        heights.append(height(' '.join(layer_array), size, family, line_weight))
-                        layer_array = [word]
-                    else:
-                        layer_array.append(word)
-                else:
-                    weights.append(line_weight), layers.append(' '.join(layer_array))
-                    heights.append(height(' '.join(layer_array), size, family, line_weight))
-            else:
-                layers.append(''), heights.append(0), weights.append(line_weight)
-
-        if skip:
-            size -= 1
-            continue
-
-        layers_count = len(layers) - 1 if len(layers) > 1 else 1
-        full_height = heights[0] - min_height(layers[0], size, family, weights[0])
-        modal_height = max(heights) if emoji.emoji_list(text) else median_function(heights)
-        full_height += sum([min_height(layers[i], size, family, weights[i]) for i in range(0, len(layers))])
-        draw, aligner, emoji_size, additional_height = copy(ImageDraw.Draw(mask)), 0, size + (size * 0.4), 0
-        spacing = (original_height - full_height) // layers_count
-        if spacing > modal_height * coefficient:
-            spacing = modal_height * coefficient
-            aligner = (original_height - full_height - (spacing if len(layers) > 1 else 0) * layers_count) // 2
-        for i in range(0, len(layers)):
-            left = left_indent + left_indent_2
-            emojis = [e['emoji'] for e in emoji.emoji_list(layers[i])]
-            modded = (heights[i] - min_height(layers[i], size, family, weights[i]))
-            chunks = [re.sub('&#124;', '|', i) for i in emoji.replace_emoji(layers[i], replace='|').split('|')]
-            modded = modded if i != 0 or (i == 0 and layers_count == 0) else 0
-            top = top_indent + top_indent_2 + aligner + additional_height - modded
-            additional_height += heights[i] - modded + spacing
-            if text_align == 'center':
-                left += (original_width - width(layers[i], size, family, weights[i])) // 2
-
-            for c in range(0, len(chunks)):
-                chunk_width = width(chunks[c], size, family, weights[i])
-                emoji_scale = (left + chunk_width + int(emoji_size * 0.055), int(top))
-                text_scale = (left, top + heights[i] - height(chunks[c], size, family, weights[i]))
-                draw.text(text_scale, chunks[c], text_color, font(size, family, weights[i]), anchor='lt')
-                if c < len(emojis):
-                    emoji_record = db.get_emoji(emojis[c])
-                    if emoji_record:
-                        emoji_image = BytesIO(base64.b64decode(emoji_record['data']))
-                        foreground = Image.open(emoji_image).resize((int(emoji_size), int(emoji_size)), 3)
-                    else:
-                        foreground = Image.new('RGBA', (int(emoji_size), int(emoji_size)), (0, 0, 0, 1000))
-                    try:
-                        mask.paste(foreground, emoji_scale, foreground)
-                    except IndexError and Exception:
-                        mask.paste(foreground, emoji_scale)
-                left += chunk_width + int(emoji_size + emoji_size * 0.11)
-        size -= 1
-    db.close()
-    if mask:
-        background.paste(mask, (0, 0), mask)
-        background.save(file_name)
-        if return_link:
-            with open(file_name, 'rb') as file:
-                response = f'https://telegra.ph{upload.upload_file(file)[0]}'
-            os.remove(file_name)
-        else:
-            return file_name
-    return response
-
-
 def tg_handler(data: dict):
-    logo = Image.open('logo.png')
-    picture = image(text=data.get('title', 'Sample'), return_link=True, background=logo,
-                    original_width=logo.getbbox()[2], original_height=logo.getbbox()[3],
+    picture = image(background=Image.open('logo.png'), return_link=True,
+                    text=re.sub(r'\(.*?\)', '', data.get('title', 'Sample')).strip(),
                     font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
-    if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
-        return {'text': None, 'image': picture}
-    elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
-        return {'text': None, 'image': picture}
-    elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
-        return {'text': None, 'image': picture}
-    elif data.get('experience') and re.search('6', data['experience']):
-        return {'text': None, 'image': picture}
     text = f"{html_link(picture, '​​')}️" if picture else ''
     text += f"👨🏻‍💻 {bold(data['title'])}\n" if data.get('title') else ''
     text += f"🏙 {data['short_place']}\n" if data.get('short_place') else ''
@@ -324,71 +130,54 @@ def tg_handler(data: dict):
     map_link = f"http://maps.yandex.ru/?text={data['geo']}" if data.get('geo') else None
     text += f"\n📍 {html_link(map_link, 'На карте')}\n" if map_link else ''
     text += f"\n🔎 {html_link(data['link'], 'Источник')}\n" if data.get('link') else ''
-    text += f"\n🆔 {italic(server['post_id'])}"
+    text += f"\n🆔 {italic(data['post_id'])}" if data.get('post_id') else ''
     text += f"\n{italic('💼ТЕГИ:')} #{' #'.join(data['tags'])}\n" if data.get('tags') else ''
     return {'text': text, 'image': picture}
 
 
-def poster(data: dict):
-    global server
-    tg = tg_handler(data)
-    if tg.get('text'):
-        message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
-        server['post_id'] = message.message_id + 1
-        message_date = datetime.fromtimestamp(message.date, tz)
-        inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                          background_color=(254, 230, 68), original_width=1080, original_height=1080)
-        tt_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                        background_color=(254, 230, 68), original_width=1080, original_height=1920)
-        for path, channel in [(inst_path, 'instagram'), (tt_path, 'tiktok')]:
-            with open(path, 'rb') as picture:
-                Auth.bot.send_photo(channels[channel], picture)
-            with open(path, 'rb') as picture:
-                Auth.bot.send_document(channels[channel], picture)
-            os.remove(path)
-        if server['date'] < message_date:
-            print('date', server['date'], 'message_date', message_date)
-            server['date'] = message_date
-            edit_vars()
-    else:
-        text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Что-то пошло не так: &#123;\n"
-        for key, value in data.items():
-            selected = ['link', 'money', 'title', 'short_place']
-            text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
-        Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
-
-
-def inst_poster(username: str, description: str, image_path: str):
-    driver = chrome(os.environ.get('local'))
-    driver.set_window_size(500, 1200)
-    driver.get(f'https://www.instagram.com/')
-    input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
-    for cookie in pickle.load(open('cookies.pkl', 'rb')):
-        driver.add_cookie(cookie)
-    driver.get(f'https://www.instagram.com/{username}/')
-    driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
-    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-    driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
-    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-    div = driver.find_element(By.XPATH, "//div[@role='dialog']")
-    div.find_elements(By.TAG_NAME, 'button')[1].click()
-    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
-    div.find_elements(By.TAG_NAME, 'button')[1].click()
-    WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
-    driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
-    div.find_elements(By.TAG_NAME, 'button')[1].click()
-    title = driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label')
-    while title == driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label'):
-        sleep(1)
-    for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
-        div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
-    link = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
-    driver.close()
-    return link
+async def inst_poster(username: str, description: str, image_path: str):
+    response = 'Process crashed'
+    try:
+        driver = chrome(os.environ.get('local'))
+        driver.set_window_size(500, 1200)
+        driver.get(f'https://www.instagram.com/')
+        input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
+        for cookie in pickle.load(open('cookies.pkl', 'rb')):
+            driver.add_cookie(cookie)
+        driver.get(f'https://www.instagram.com/{username}/')
+        await asyncio.sleep(random.normalvariate(3, 1))
+        driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+        await asyncio.sleep(random.normalvariate(3, 1))
+        driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+        div = driver.find_element(By.XPATH, "//div[@role='dialog']")
+        await asyncio.sleep(random.normalvariate(3, 1))
+        div.find_elements(By.TAG_NAME, 'button')[1].click()
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
+        await asyncio.sleep(random.normalvariate(3, 1))
+        div.find_elements(By.TAG_NAME, 'button')[1].click()
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
+        await asyncio.sleep(random.normalvariate(3, 1))
+        driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
+        await asyncio.sleep(random.normalvariate(3, 1))
+        div.find_elements(By.TAG_NAME, 'button')[1].click()
+        title = driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label')
+        while title == driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label'):
+            sleep(1)
+        await asyncio.sleep(random.normalvariate(3, 1))
+        for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
+            div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
+        await asyncio.sleep(random.normalvariate(3, 1))
+        response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
+        driver.close()
+    except IndexError and Exception:
+        await Auth.dev.executive(None)
+    return str(response)
 
 
 def prc_parser(link: str):
-    data = {'link': link}
+    data = {'link': link, 'tags': []}
     soup = BeautifulSoup(requests.get(link).text, 'html.parser')
     if soup.find('span', class_='hidden-vac-contact'):
         link += '?token=wykzQ7x5oq6kZWG7naOvHprT4vcZ1vdFFUSXoOfmKR10pPWq0ox5acYvr3wcfg00'
@@ -418,7 +207,9 @@ def prc_parser(link: str):
     data['short_place'] = re.sub(r'\s+', ' ', short_place.get_text()).strip() if short_place else None
     data['org_name'] = re.sub(r'\s+', ' ', org_name.find('a').get_text()).strip() if org_name else None
     data['title'] = re.sub(r'\s+', ' ', re.sub('/', ' / ', title.get_text())).strip() if title else None
-    data['tags'] = [re.sub('_/_', ' #', re.sub(r'[\s_—-]+', '_', tag.get_text())).strip() for tag in tags]
+
+    for tag in tags:
+        data['tags'].extend([t.strip() for t in re.sub(r'[\s_—-]+', '_', tag.get_text()).split('_/_')])
 
     for div in soup.find_all('div', class_='vacancy__item'):
         education = div.find('p', class_='vacancy__education')
@@ -449,7 +240,7 @@ async def detector(message: types.Message):
             await asyncio.sleep(60)
             if message['message_id'] + 1 > server['post_id']:
                 server['post_id'] = message['message_id'] + 1
-                edit_vars()
+                await edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -463,50 +254,40 @@ async def repeat_all_messages(message: types.Message):
                 text, _ = Auth.logs.reboot()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
-            elif message['text'].lower().startswith('/pic'):
-                subbed = re.sub('/pic', '', message['text']).strip()
-                await bot.send_message(message['chat']['id'], image(subbed), parse_mode='HTML')
-
             elif message['text'].lower().startswith('/vars'):
-                text = f"{code('Последний пост на канале с вакансиями')}\n" \
-                       f"{bold('ID =')} {server['post_id']} {bold('= ID')}\n" \
-                       f"{bold('&#62;')} {code(server['date'])} {bold('&#60;')}\n" \
-                       f"{bold('block =')} {server['block']} {bold('= block')}"
-                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+                commands = iter_commands(server, query_regex)
+                await bot.send_message(message['chat']['id'], '\n'.join(commands.values()), parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/pic'):
+                link = image(background=Image.open('logo.png'), return_link=True,
+                             text=re.sub('/[pP][iI][cC]', '', message['text'], 1).strip(),
+                             font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
+                await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
             elif message['text'].lower().startswith(('/enable', '/disable')):
                 if message['text'].lower().startswith('/disable'):
-                    text, new_block = f"Посты на канале {bold('не')} публикуются", 'True'
+                    text, block = f"Посты на канале {bold('не')} публикуются", 'True'
                 else:
-                    text, new_block = 'Посты на канале публикуются в штатном режиме', 'False'
-                if server['block'] != new_block:
-                    server['block'] = new_block
-                    edit_vars()
+                    text, block = 'Посты на канале публикуются в штатном режиме', 'False'
+                if server['block'] != block:
+                    server['block'] = block
+                    await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
             elif message['text'].lower().startswith('/test'):
-                inst_text = 'Все вакансии и удобный поиск по ним, а также вся контактная информация в нашем ' \
-                            'Telegram канале (ссылка в шапке профиля). #работа_в_минске #Вакансии_Минск ' \
-                            '#удаленная_работа_по_всей_беларуси #работа #вакансии_в_минске #работа_РБ ' \
-                            '#вакансии #удаленная_работа'
                 data = prc_parser('https://praca.by/vacancy/460578/')
+                data['post_id'] = copy(server['post_id'])
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                                   background_color=(254, 230, 68), original_width=1080, original_height=1080)
-                inst_poster(inst_username, inst_text, inst_path)
+                inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                                                       place=data.get('short_place', ''),
+                                                       vacancy_tags=data.get('tags', []))
+                inst_link = await inst_poster(inst_username, inst_description, inst_path)
+                Auth.bot.send_message(admins[0], text=inst_link)
                 os.remove(inst_path)
                 await bot.send_message(message['chat']['id'], 'все ок', parse_mode='HTML')
-
     except IndexError and Exception:
         await Auth.dev.async_except(message)
-
-
-def prc_checker():
-    while True:
-        try:
-            checker(parser=prc_parser, address='https://praca.by/search/vacancies/',
-                    link_class='vac-small__title-link', main_class='vac-small__column vac-small__column_2')
-        except IndexError and Exception:
-            Auth.dev.thread_except()
 
 
 def auto_reboot():
@@ -528,21 +309,110 @@ def auto_reboot():
             Auth.dev.thread_except()
 
 
+async def site_handlers():
+    async def site_handler(address: str, main_class: str, link_class: str, parser):
+        global used_links, unused_links, worksheet
+        now, links = datetime.now(tz), []
+        soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
+        for link_div in soup.find_all('div', attrs={'class': main_class}):
+            link = link_div.find('a', attrs={'class': link_class})
+            links.append(link.get('href')) if link else None
+        for link in links:
+            if link not in used_links and link not in unused_links and (11 <= int(now.strftime('%H')) < 21):
+                if (server['date'] + timedelta(hours=2)) < now and server['block'] != 'True':
+                    try:
+                        link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                    except IndexError and Exception as error:
+                        if 'exceeds grid limits' in str(error):
+                            worksheet.add_rows(1000)
+                            worksheet.delete_rows(1, 1000)
+                            used_links = worksheet.col_values(1)
+                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                            sleep(5)
+                        else:
+                            service_account = gspread.service_account('person2.json')
+                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')#
+                            worksheet = service_account.open('Belarus-Vacancies').worksheet('main')
+                            link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
+                        #else:
+                        #   raise error
+                    link_range[0].value = link
+                    worksheet.update_cells(link_range)
+                    used_links.append(link)
+                    data = parser(link)
+                    data['post_id'] = copy(server['post_id'])
+                    await poster(data)
+                    Auth.dev.printer(f'Обработано: {link}')
+                else:
+                    unused_links.append(link)
+        sleep(30)
+
+    async def poster(data: dict):
+        global server
+        tg = tg_handler(data)
+        if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
+            data['Причина'] = 'Отсутствуют поля'
+        elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
+            data['Причина'] = 'Неподходящая деятельность'
+        elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
+            data['Причина'] = f"{'Добро'}ном"
+        elif data.get('experience') and re.search('6', data['experience']):
+            data['Причина'] = 'Слишком много опыта'
+
+        if data.get('Причина'):
+            text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Не опубликовано: &#123;\n"
+            for key, value in data.items():
+                selected = ['link', 'money', 'title', 'Причина', 'short_place']
+                text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
+            await bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+        else:
+            message = await bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
+            server['post_id'] = message['message_id'] + 1
+            message_date = datetime.fromtimestamp(message['date'], tz)
+            inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                              background_color=(254, 230, 68), original_width=1080, original_height=1080)
+            inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                                                   place=data.get('short_place', ''),
+                                                   vacancy_tags=data.get('tags', []))
+            inst_link = await inst_poster(inst_username, inst_description, inst_path)
+            with open(inst_path, 'rb') as picture:
+                Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
+            with open(inst_path, 'rb') as picture:
+                Auth.bot.send_document(channels['instagram'], picture)
+            os.remove(inst_path)
+            if server['date'] < message_date:
+                print('date', server['date'], 'message_date', message_date)
+                server['date'] = message_date
+                await edit_vars()
+
+    while True:
+        try:
+            await site_handler(parser=prc_parser, main_class='vac-small__column vac-small__column_2',
+                               address='https://praca.by/search/vacancies/', link_class='vac-small__title-link')
+        except IndexError and Exception:
+            Auth.dev.async_except()
+
+
 def start(stamp):
+    def set_async_thread():
+        loop = asyncio.new_event_loop()
+        for async_element in async_threads:
+            loop.create_task(async_element())
+        loop.run_forever()
     try:
-        threads = [auto_reboot]
+        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], []
         if os.environ.get('local'):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
-            alert = f"\n{bold('Скрипты не запущены')}"
             if all(server.get(key) for key in ['date', 'block', 'post_id']) and inst_username:
-                _, alert = threads.append(prc_checker), ''
+                alert, async_threads = '', [site_handlers]
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
         for thread_element in threads:
             _thread.start_new_thread(thread_element, ())
+        _thread.start_new_thread(set_async_thread, ()) if async_threads else None
         executor.start_polling(dispatcher, allowed_updates=functions.allowed_updates)
     except IndexError and Exception:
         Auth.dev.thread_except()
