@@ -266,13 +266,20 @@ async def repeat_all_messages(message: types.Message):
                              font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
-            elif message['text'].lower().startswith(('/enable', '/disable')):
-                text, block = 'Посты на канале публикуются в штатном режиме', 'False'
-                if message['text'].lower().startswith('/disable'):
-                    text, block = f"Посты на канале {bold('не')} публикуются", 'True'
-                if server['block'] != block:
-                    server['block'] = block
-                    await edit_vars()
+            elif message['text'].lower().startswith('/toggle'):
+                if server['block'] == 'False':
+                    text, server['block'] = f"Вакансии {bold('не')} публикуются", 'True'
+                else:
+                    text, server['block'] = 'Вакансии публикуются в штатном режиме', 'False'
+                await edit_vars()
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/inst'):
+                if server['inst_block'] == 'False':
+                    text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
+                else:
+                    text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
+                await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
             elif message['text'].lower().startswith('/test'):
@@ -313,14 +320,15 @@ async def site_handlers():
     async def site_handler(address: str, main_class: str, link_class: str, parser):
         global used_links, worksheet
         now, links = datetime.now(tz), []
-        if (server['date'] + timedelta(hours=2)) < now and \
-                server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
+        if (server['date'] + timedelta(hours=2)) < now \
+                and server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
             soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
             for link_div in soup.find_all('div', attrs={'class': main_class}):
                 link = link_div.find('a', attrs={'class': link_class})
                 links.append(link.get('href')) if link else None
             for link in links:
-                if (server['date'] + timedelta(hours=2)) < now and link not in used_links:
+                if (server['date'] + timedelta(hours=2)) < now \
+                        and link not in used_links and server['block'] != 'True':
                     try:
                         link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
                     except IndexError and Exception as error:
@@ -369,17 +377,18 @@ async def site_handlers():
             server['post_id'] = message.message_id + 1
             print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
             server['date'] = datetime.fromtimestamp(message.date, tz)
-            inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                              background_color=(254, 230, 68), original_width=1080, original_height=1080)
-            inst_description = inst_text.generator(post_id=data.get('post_id', 0),
-                                                   place=data.get('short_place', ''),
-                                                   vacancy_tags=data.get('tags', []))
-            inst_link = await inst_poster(inst_username, inst_description, inst_path)
-            with open(inst_path, 'rb') as picture:
-                Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
-            with open(inst_path, 'rb') as picture:
-                Auth.bot.send_document(channels['instagram'], picture)
-            os.remove(inst_path)
+            if server['inst_block'] != 'True':
+                inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
+                                  background_color=(254, 230, 68), original_width=1080, original_height=1080)
+                inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                                                       place=data.get('short_place', ''),
+                                                       vacancy_tags=data.get('tags', []))
+                inst_link = await inst_poster(inst_username, inst_description, inst_path)
+                with open(inst_path, 'rb') as picture:
+                    Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
+                with open(inst_path, 'rb') as picture:
+                    Auth.bot.send_document(channels['instagram'], picture)
+                os.remove(inst_path)
         Auth.dev.printer(f"{'Не о' if data.get('Причина') else 'О'}публиковано: {data.get('link')}")
 
     while True:
