@@ -290,9 +290,11 @@ async def repeat_all_messages(message: types.Message):
             elif message['text'].lower().startswith('/test'):
                 print('Go')
                 data = prc_parser('https://praca.by/vacancy/453213/')
+                print('обработали вакансию, создаем изображение')
                 data['post_id'] = 6250
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                                   background_color=(254, 230, 68), original_width=1080, original_height=1080)
+                print('создали изображение, постим в инстаграм')
                 inst_description = inst_text.generator(post_id=data.get('post_id', 0),
                                                        place=data.get('short_place', ''),
                                                        vacancy_tags=data.get('tags', []))
