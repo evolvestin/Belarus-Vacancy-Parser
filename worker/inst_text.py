@@ -36,7 +36,7 @@ def generator(post_id: Union[int, str], place: str, vacancy_tags: list):
         modified = re.sub('_', '', tag).lower()
         tags.append(modified) if modified != tag.lower() else None
     for city in cities:
-        if city in place.lower():
+        if city in re.sub('ё', 'е', place.lower()):
             break
     else:
         city = 'None'
