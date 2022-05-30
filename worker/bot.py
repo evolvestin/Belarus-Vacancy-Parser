@@ -160,7 +160,6 @@ async def inst_poster(username: str, description: str, image_path: str):
         driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
         await asyncio.sleep(random.normalvariate(3, 1))
         div.find_elements(By.TAG_NAME, 'button')[1].click()
-        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         await asyncio.sleep(15 + random.normalvariate(3, 1))
         driver.get(f'https://www.instagram.com/{username}/')
         await asyncio.sleep(random.normalvariate(3, 1))
