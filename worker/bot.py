@@ -157,7 +157,7 @@ async def inst_poster(username: str, description: str, image_path: str):
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
         await asyncio.sleep(random.normalvariate(3, 1))
         driver.save_screenshot('go.jpg')
-        with open('go.jpg', 'r') as file:
+        with open('go.jpg', 'rb') as file:
             Auth.bot.send_photo(admins[0], file)
 
         div.find_elements(By.TAG_NAME, 'button')[1].click()
