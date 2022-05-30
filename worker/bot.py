@@ -139,7 +139,7 @@ async def inst_poster(username: str, description: str, image_path: str):
     response = 'Process crashed'
     try:
         driver = chrome(os.environ.get('local'))
-        driver.set_window_size(500, 1200)
+        driver.set_window_size(900, 1200)
         driver.get(f'https://www.instagram.com/')
         input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
