@@ -160,28 +160,11 @@ async def inst_poster(username: str, description: str, image_path: str):
         driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
         await asyncio.sleep(random.normalvariate(3, 1))
         div.find_elements(By.TAG_NAME, 'button')[1].click()
-        title = driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label')
-        while title == driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label'):
-            counter += 1
-            if counter in [10, 20, 30]:
-                with open('file.html', 'w') as file:
-                    file.write(str(driver.page_source))
-                with open('file.html', 'rb') as file:
-                    Auth.bot.send_document(admins[0], file, caption=f'title = {title}')
-                driver.save_screenshot('screen.png')
-                with open('screen.png', 'rb') as file:
-                    Auth.bot.send_photo(admins[0], file)
-            if counter == 100:
-                break
-            sleep(1)
-        if counter < 100:
-            await asyncio.sleep(random.normalvariate(3, 1))
-            for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
-                div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
-        else:
-            driver.get(f'https://www.instagram.com/{username}/')
-            await asyncio.sleep(random.normalvariate(5, 1))
-            response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+        await asyncio.sleep(15 + random.normalvariate(3, 1))
+        driver.get(f'https://www.instagram.com/{username}/')
+        await asyncio.sleep(random.normalvariate(3, 1))
+        response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
         driver.close()
     except IndexError and Exception:
         Auth.dev.executive(None)
