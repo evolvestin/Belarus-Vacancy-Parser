@@ -282,18 +282,6 @@ async def repeat_all_messages(message: types.Message):
                     text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
                 await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/test'):
-                data = prc_parser('https://praca.by/vacancy/472828/')
-                data['post_id'] = copy(server['post_id'])
-                inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                                  background_color=(254, 230, 68), original_width=1080, original_height=1080)
-                inst_description = inst_text.generator(post_id=data.get('post_id', 0),
-                                                       place=data.get('short_place', ''),
-                                                       vacancy_tags=data.get('tags', []))
-                inst_link = await inst_poster(inst_username, inst_description, inst_path)
-                os.remove(inst_path)
-                await bot.send_message(message['chat']['id'], text=inst_link, parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
