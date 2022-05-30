@@ -40,11 +40,9 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 
 functions.environmental_files()
-#channels = {'main': 396978030, 'instagram': 396978030}
 channels = {'main': -1001404073893, 'instagram': -1001186786378}
 tz, admins = timezone(timedelta(hours=3)), [396978030, 470292601]
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
-#Auth = functions.AuthCentre(ID_DEV=396978030, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
 server, query_regex = vars_query(Auth.bot, 'vars')
@@ -136,16 +134,16 @@ def tg_handler(data: dict):
 
 
 async def inst_poster(username: str, description: str, image_path: str):
-    response = 'Process crashed'
+    counter, response = 0, 'Process crashed'
     try:
         driver = chrome(os.environ.get('local'))
-        driver.set_window_size(900, 1200)
+        driver.set_window_size(1000, 1200)
         driver.get(f'https://www.instagram.com/')
         input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
         driver.get(f'https://www.instagram.com/{username}/')
-        await asyncio.sleep(random.normalvariate(3, 1))
+        await asyncio.sleep(random.normalvariate(5, 1))
         driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         await asyncio.sleep(random.normalvariate(3, 1))
@@ -156,10 +154,6 @@ async def inst_poster(username: str, description: str, image_path: str):
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
         await asyncio.sleep(random.normalvariate(3, 1))
-        driver.save_screenshot('go.jpg')
-        with open('go.jpg', 'rb') as file:
-            Auth.bot.send_photo(admins[0], file)
-
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
         await asyncio.sleep(random.normalvariate(3, 1))
@@ -168,12 +162,26 @@ async def inst_poster(username: str, description: str, image_path: str):
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         title = driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label')
         while title == driver.find_element(By.XPATH, "//div[@role='dialog']").get_attribute('aria-label'):
+            counter += 1
+            if counter in [10, 20, 30]:
+                with open('file.html', 'w') as file:
+                    file.write(str(driver.page_source))
+                with open('file.html', 'rb') as file:
+                    Auth.bot.send_document(admins[0], file, caption=f'title = {title}')
+                driver.save_screenshot('screen.png')
+                with open('screen.png', 'rb') as file:
+                    Auth.bot.send_photo(admins[0], file)
+            if counter == 100:
+                break
             sleep(1)
-        await asyncio.sleep(random.normalvariate(3, 1))
-        for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
-            div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
-        await asyncio.sleep(random.normalvariate(3, 1))
-        response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
+        if counter >= 100:
+            await asyncio.sleep(random.normalvariate(3, 1))
+            for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
+                div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
+        else:
+            driver.get(f'https://www.instagram.com/{username}/')
+            await asyncio.sleep(random.normalvariate(5, 1))
+            response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
         driver.close()
     except IndexError and Exception:
         Auth.dev.executive(None)
@@ -286,21 +294,6 @@ async def repeat_all_messages(message: types.Message):
                     text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
                 await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/test'):
-                print('Go')
-                data = prc_parser('https://praca.by/vacancy/453213/')
-                print('обработали вакансию, создаем изображение')
-                data['post_id'] = 6250
-                inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
-                                  background_color=(254, 230, 68), original_width=1080, original_height=1080)
-                print('создали изображение, постим в инстаграм')
-                inst_description = inst_text.generator(post_id=data.get('post_id', 0),
-                                                       place=data.get('short_place', ''),
-                                                       vacancy_tags=data.get('tags', []))
-                inst_link = await inst_poster(inst_username, inst_description, inst_path)
-                os.remove(inst_path)
-                await bot.send_message(message['chat']['id'], text=inst_link, parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -388,11 +381,13 @@ async def site_handlers():
             print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
             server['date'] = datetime.fromtimestamp(message.date, tz)
             if server['inst_block'] != 'True':
+                print('создаем изображение в инстаграм')
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                                   background_color=(254, 230, 68), original_width=1080, original_height=1080)
                 inst_description = inst_text.generator(post_id=data.get('post_id', 0),
                                                        place=data.get('short_place', ''),
                                                        vacancy_tags=data.get('tags', []))
+                print('создали изображение, постим в инстаграм')
                 inst_link = await inst_poster(inst_username, inst_description, inst_path)
                 with open(inst_path, 'rb') as picture:
                     Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
