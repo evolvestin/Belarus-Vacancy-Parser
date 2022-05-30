@@ -288,6 +288,7 @@ async def repeat_all_messages(message: types.Message):
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
             elif message['text'].lower().startswith('/test'):
+                print('Go')
                 data = prc_parser('https://praca.by/vacancy/453213/')
                 data['post_id'] = 6250
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
