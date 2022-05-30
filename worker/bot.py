@@ -88,8 +88,7 @@ def inst_handler(data: dict):
 
 async def edit_vars():
     commands = iter_commands(server, query_regex)
-    commands.update({'inst_enable': 'Включить постинг в Instagram', 'inst_disable': 'Отключить постинг в Instagram',
-                     'enable': 'Включить постинг на канале', 'disable': 'Отключить постинг на канале'})
+    commands.update({'inst': 'Включить постинг в Instagram', 'toggle': 'Включить/Выключить постинг на канале'})
     list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
     try:
         await bot.set_my_commands(list_commands)
@@ -268,9 +267,11 @@ async def repeat_all_messages(message: types.Message):
 
             elif message['text'].lower().startswith('/toggle'):
                 if server['block'] == 'False':
-                    text, server['block'] = f"Вакансии {bold('не')} публикуются", 'True'
+                    text = f"Вакансии {bold('не')} публикуются"
+                    server['block'], server['inst_block'] = 'True', 'True'
                 else:
-                    text, server['block'] = 'Вакансии публикуются в штатном режиме', 'False'
+                    text = 'Вакансии публикуются в штатном режиме'
+                    server['block'], server['inst_block'] = 'False', 'False'
                 await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
@@ -357,14 +358,16 @@ async def site_handlers():
     async def poster(data: dict):
         global server
         tg = tg_handler(data)
-        if any(data.get(key) is None for key in ['money', 'title', 'short_place']):
-            data['Причина'] = 'Отсутствуют поля'
+        if data.get('experience') and re.search('6', data['experience']):
+            data['Причина'] = 'Слишком много опыта'
         elif re.search('водитель|яндекс|такси|уборщи', data['title'].lower()):
             data['Причина'] = 'Неподходящая деятельность'
+        elif data.get('org_name') and re.search('табак', data['org_name'].lower()):
+            data['Причина'] = 'ТАБАК-ИНВЕСТ'
+        elif any(data.get(key) is None for key in ['money', 'title', 'short_place']):
+            data['Причина'] = 'Отсутствуют поля'
         elif data.get('org_name') and re.search('доброном', data['org_name'].lower()):
             data['Причина'] = f"{'Добро'}ном"
-        elif data.get('experience') and re.search('6', data['experience']):
-            data['Причина'] = 'Слишком много опыта'
 
         if data.get('Причина'):
             text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Не опубликовано: &#123;\n"
