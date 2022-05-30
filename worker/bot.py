@@ -174,7 +174,7 @@ async def inst_poster(username: str, description: str, image_path: str):
             if counter == 100:
                 break
             sleep(1)
-        if counter >= 100:
+        if counter < 100:
             await asyncio.sleep(random.normalvariate(3, 1))
             for div in driver.find_elements(By.XPATH, "//div[@role='presentation' and not(@tabindex='-1')]"):
                 div.find_element(By.TAG_NAME, 'button').click() if div.find_elements(By.TAG_NAME, 'button') else None
@@ -277,6 +277,14 @@ async def repeat_all_messages(message: types.Message):
                              font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
+            elif message['text'].lower().startswith('/inst'):
+                if server['inst_block'] == 'False':
+                    text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
+                else:
+                    text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
+                await edit_vars()
+                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
+
             elif message['text'].lower().startswith('/toggle'):
                 if server['block'] == 'False':
                     text = f"Вакансии {bold('не')} публикуются"
@@ -284,14 +292,6 @@ async def repeat_all_messages(message: types.Message):
                 else:
                     text = 'Вакансии публикуются в штатном режиме'
                     server['block'], server['inst_block'] = 'False', 'False'
-                await edit_vars()
-                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/inst'):
-                if server['inst_block'] == 'False':
-                    text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
-                else:
-                    text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
                 await edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
     except IndexError and Exception:
