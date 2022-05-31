@@ -4,6 +4,7 @@ import pickle
 import random
 import asyncio
 import gspread
+import telebot
 import _thread
 import requests
 import inst_text
@@ -71,19 +72,6 @@ def italic(text, md=False):
     return f'__{text}__' if md else f'<i>{text}</i>'
 
 
-async def glow():
-    import aiogram
-    import string
-    f = aiogram.Bot('429683355:AAE2isaUNIbpcQ9TAjwzzcJYryA6oK8Ywow')
-    while True:
-        try:
-            text = ''.join(random.sample(string.ascii_letters, 15))
-            await f.send_message(admins[0], text)
-            await asyncio.sleep(random.normalvariate(100, 30))
-        except IndexError and Exception:
-            await Auth.dev.async_except()
-
-
 def inst_handler(data: dict):
     array = [bold(f"👨🏻‍💻 {data['title']}", md=True)] if data.get('title') else []
     array.append(f"🏙 {data['short_place']}") if data.get('short_place') else None
@@ -95,12 +83,12 @@ def inst_handler(data: dict):
     return '\n'.join(array)
 
 
-async def edit_vars():
+def edit_vars():
     commands = iter_commands(server, query_regex)
     commands.update({'inst': 'Включить постинг в Instagram', 'toggle': 'Включить/Выключить постинг на канале'})
-    list_commands = [types.BotCommand(command, description) for command, description in commands.items()]
+    list_commands = [telebot.types.BotCommand(command, description) for command, description in commands.items()]
     try:
-        await bot.set_my_commands(list_commands)
+        Auth.bot.set_my_commands(list_commands)
     except IndexError and Exception as error:
         Auth.dev.message(text=f"{bold(f'Проблема с изменением переменных в боте @{Auth.username}')} "
                               f"\n\n{html_secure(server)}\n{html_secure(error)}")
@@ -240,14 +228,13 @@ def prc_parser(link: str):
 @dispatcher.channel_post_handler()
 async def detector(message: types.Message):
     global server
-    print(message)
     try:
         if message['chat']['id'] == channels['main']:
             await asyncio.sleep(10)
             server['post_id'] = message['message_id'] + 1
             print('CATCHING date', server['date'], 'message_date', datetime.fromtimestamp(message['date'], tz))
             server['date'] = datetime.fromtimestamp(message['date'], tz)
-            await edit_vars()
+            edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
 
@@ -276,7 +263,7 @@ async def repeat_all_messages(message: types.Message):
                     text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
                 else:
                     text, server['inst_block'] = 'Вакансии в Instagram публикуются в штатном режиме', 'False'
-                await edit_vars()
+                edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
 
             elif message['text'].lower().startswith('/toggle'):
@@ -286,7 +273,7 @@ async def repeat_all_messages(message: types.Message):
                 else:
                     text = 'Вакансии публикуются в штатном режиме'
                     server['block'], server['inst_block'] = 'False', 'False'
-                await edit_vars()
+                edit_vars()
                 await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
     except IndexError and Exception:
         await Auth.dev.async_except(message)
@@ -347,7 +334,7 @@ def site_handlers():
                     data['post_id'] = copy(server['post_id'])
                     poster(data)
                     sleep(5)
-        sleep(5)
+        sleep(600 + random.normalvariate(100, 100))
 
     def poster(data: dict):
         global server
@@ -374,6 +361,7 @@ def site_handlers():
             server['post_id'] = message.message_id + 1
             print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
             server['date'] = datetime.fromtimestamp(message.date, tz)
+            edit_vars()
             if server['inst_block'] != 'True':
                 print('создаем изображение в инстаграм')
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
@@ -406,7 +394,7 @@ def start(stamp):
             loop.create_task(async_element())
         loop.run_forever()
     try:
-        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], [glow]
+        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], []
         if os.environ.get('local'):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
