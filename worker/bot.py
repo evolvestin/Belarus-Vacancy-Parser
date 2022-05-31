@@ -311,7 +311,7 @@ def auto_reboot():
             Auth.dev.thread_except()
 
 
-async def site_handlers():
+def site_handlers():
     def site_handler(address: str, main_class: str, link_class: str, parser):
         global used_links, worksheet
         now, links = datetime.now(tz), []
