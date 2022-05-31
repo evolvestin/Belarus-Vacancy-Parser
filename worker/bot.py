@@ -50,8 +50,6 @@ server['post_id'] = int(server['post_id']) if server.get('post_id') else None
 used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
 server['date'] = datetime.fromisoformat(server['date']) if server.get('date') else None
 bot, drive, dispatcher = Auth.async_bot, Drive('person2.json'), Dispatcher(Auth.async_bot)
-
-print('STARTING server[date]', server['date'])
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 '
                          '(KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 for google_folder in drive.files(only_folders=True):
@@ -71,6 +69,19 @@ def bold(text, md=False):
 
 def italic(text, md=False):
     return f'__{text}__' if md else f'<i>{text}</i>'
+
+
+async def glow():
+    import aiogram
+    import string
+    f = aiogram.Bot('429683355:AAE2isaUNIbpcQ9TAjwzzcJYryA6oK8Ywow')
+    while True:
+        try:
+            text = ''.join(random.sample(string.ascii_letters, 15))
+            await f.send_message(admins[0], text)
+            await asyncio.sleep(random.normalvariate(100, 30))
+        except IndexError and Exception:
+            await Auth.dev.async_except()
 
 
 def inst_handler(data: dict):
@@ -133,7 +144,7 @@ def tg_handler(data: dict):
     return {'text': text, 'image': picture}
 
 
-async def inst_poster(username: str, description: str, image_path: str):
+def inst_poster(username: str, description: str, image_path: str):
     counter, response = 0, 'Process crashed'
     try:
         driver = chrome(os.environ.get('local'))
@@ -143,26 +154,26 @@ async def inst_poster(username: str, description: str, image_path: str):
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
         driver.get(f'https://www.instagram.com/{username}/')
-        await asyncio.sleep(random.normalvariate(5, 1))
+        sleep(4 + random.normalvariate(3, 1))
         driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(1 + random.normalvariate(3, 1))
         driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         div = driver.find_element(By.XPATH, "//div[@role='dialog']")
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(1 + random.normalvariate(3, 1))
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(1 + random.normalvariate(3, 1))
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(1 + random.normalvariate(3, 1))
         driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(1 + random.normalvariate(3, 1))
         div.find_elements(By.TAG_NAME, 'button')[1].click()
-        await asyncio.sleep(15 + random.normalvariate(3, 1))
+        sleep(15 + random.normalvariate(3, 1))
         driver.get(f'https://www.instagram.com/{username}/')
-        await asyncio.sleep(random.normalvariate(3, 1))
+        sleep(5 + random.normalvariate(3, 1))
         response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
         driver.close()
     except IndexError and Exception:
@@ -229,6 +240,7 @@ def prc_parser(link: str):
 @dispatcher.channel_post_handler()
 async def detector(message: types.Message):
     global server
+    print(message)
     try:
         if message['chat']['id'] == channels['main']:
             await asyncio.sleep(10)
@@ -300,7 +312,7 @@ def auto_reboot():
 
 
 async def site_handlers():
-    async def site_handler(address: str, main_class: str, link_class: str, parser):
+    def site_handler(address: str, main_class: str, link_class: str, parser):
         global used_links, worksheet
         now, links = datetime.now(tz), []
         if (server['date'] + timedelta(hours=2)) < now \
@@ -320,7 +332,7 @@ async def site_handlers():
                             worksheet.delete_rows(1, 1000)
                             used_links = worksheet.col_values(1)
                             link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
-                            await asyncio.sleep(5)
+                            sleep(5)
                         else:
                             service_account = gspread.service_account('person2.json')
                             Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')#
@@ -333,11 +345,11 @@ async def site_handlers():
                     used_links.append(link)
                     data = parser(link)
                     data['post_id'] = copy(server['post_id'])
-                    await poster(data)
-                    await asyncio.sleep(5)
-        await asyncio.sleep(5)
+                    poster(data)
+                    sleep(5)
+        sleep(5)
 
-    async def poster(data: dict):
+    def poster(data: dict):
         global server
         tg = tg_handler(data)
         if data.get('experience') and re.search('6', data['experience']):
@@ -370,7 +382,7 @@ async def site_handlers():
                                                        place=data.get('short_place', ''),
                                                        vacancy_tags=data.get('tags', []))
                 print('создали изображение, постим в инстаграм')
-                inst_link = await inst_poster(inst_username, inst_description, inst_path)
+                inst_link = inst_poster(inst_username, inst_description, inst_path)
                 with open(inst_path, 'rb') as picture:
                     Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
                 with open(inst_path, 'rb') as picture:
@@ -381,10 +393,10 @@ async def site_handlers():
     while True:
         try:
             modifier = random.choices(['', '?search[city][Минск]=1'], weights=[0.4, 0.6], k=1)[0]
-            await site_handler(address=f'https://praca.by/search/vacancies/{modifier}', parser=prc_parser,
-                               main_class='vac-small__column vac-small__column_2', link_class='vac-small__title-link')
+            site_handler(address=f'https://praca.by/search/vacancies/{modifier}', parser=prc_parser,
+                         main_class='vac-small__column vac-small__column_2', link_class='vac-small__title-link')
         except IndexError and Exception:
-            await Auth.dev.async_except()
+            Auth.dev.thread_except()
 
 
 def start(stamp):
@@ -394,13 +406,13 @@ def start(stamp):
             loop.create_task(async_element())
         loop.run_forever()
     try:
-        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], []
+        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], [glow]
         if os.environ.get('local'):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
         else:
             if all(server.get(key) for key in ['date', 'block', 'post_id', 'inst_block']) and inst_username:
-                alert, async_threads = '', [site_handlers]
+                alert, _ = '', threads.append(site_handlers)
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
