@@ -279,25 +279,6 @@ async def repeat_all_messages(message: types.Message):
         await Auth.dev.async_except(message)
 
 
-def auto_reboot():
-    reboot = None
-    while True:
-        try:
-            sleep(30)
-            date = datetime.now(tz)
-            if date.strftime('%H') == '01' and date.strftime('%M') == '59':
-                reboot = True
-                while date.strftime('%M') == '59':
-                    sleep(1)
-                    date = datetime.now(tz)
-            if reboot:
-                reboot = None
-                text, _ = Auth.logs.reboot()
-                Auth.dev.printer(text)
-        except IndexError and Exception:
-            Auth.dev.thread_except()
-
-
 def site_handlers():
     def site_handler(address: str, main_class: str, link_class: str, parser):
         global used_links, worksheet
@@ -394,7 +375,7 @@ def start(stamp):
             loop.create_task(async_element())
         loop.run_forever()
     try:
-        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [auto_reboot], []
+        alert, threads, async_threads = f"\n{bold('Скрипты не запущены')}", [], []
         if os.environ.get('local'):
             threads = []
             Auth.dev.printer(f'Запуск бота локально за {time_now() - stamp} сек.')
