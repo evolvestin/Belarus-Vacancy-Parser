@@ -143,7 +143,7 @@ def inst_poster(username: str, description: str, image_path: str):
             driver.add_cookie(cookie)
         driver.get(f'https://www.instagram.com/{username}/')
         sleep(4 + random.normalvariate(3, 1))
-        driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[3].click()
+        driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[4].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         sleep(1 + random.normalvariate(3, 1))
         driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
