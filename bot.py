@@ -2,6 +2,7 @@ import os
 import re
 import pickle
 import random
+import string
 import asyncio
 import gspread
 import telebot
@@ -132,7 +133,18 @@ def tg_handler(data: dict):
     return {'text': text, 'image': picture}
 
 
-def inst_poster(username: str, description: str, image_path: str):
+def inst_poster(username: str, description: str, image_path: str, debug: bool = False):
+    def wait_provider(delay: int = 3):
+        sleep(delay + random.normalvariate(3, 1))
+        if debug:
+            try:
+                file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.png"
+                driver.save_screenshot(file_name)
+                with open(file_name, 'rb') as file:
+                    Auth.bot.send_photo(admins[0], file)
+                os.remove(file_name)
+            except IndexError and Exception:
+                Auth.dev.executive(None)
     counter, response = 0, 'Process crashed'
     try:
         driver = chrome(os.environ.get('local'))
@@ -142,27 +154,28 @@ def inst_poster(username: str, description: str, image_path: str):
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
         driver.get(f'https://www.instagram.com/{username}/')
-        sleep(4 + random.normalvariate(3, 1))
+        wait_provider(4)
         driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[5].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-        sleep(1 + random.normalvariate(3, 1))
+        wait_provider(1)
         driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         div = driver.find_element(By.XPATH, "//div[@role='dialog']")
-        sleep(1 + random.normalvariate(3, 1))
+        wait_provider(1)
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
-        sleep(1 + random.normalvariate(3, 1))
+        wait_provider(1)
         div.find_elements(By.TAG_NAME, 'button')[1].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
-        sleep(1 + random.normalvariate(3, 1))
+        wait_provider(1)
         driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
-        sleep(1 + random.normalvariate(3, 1))
-        div.find_elements(By.TAG_NAME, 'button')[1].click()
-        sleep(15 + random.normalvariate(3, 1))
-        driver.get(f'https://www.instagram.com/{username}/')
-        sleep(5 + random.normalvariate(3, 1))
-        response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
+        if debug is False:
+            wait_provider(1)
+            div.find_elements(By.TAG_NAME, 'button')[1].click()
+            wait_provider(15)
+            driver.get(f'https://www.instagram.com/{username}/')
+            wait_provider(5)
+            response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
         driver.close()
     except IndexError and Exception:
         Auth.dev.executive(None)
@@ -251,6 +264,22 @@ async def repeat_all_messages(message: types.Message):
             elif message['text'].lower().startswith('/vars'):
                 commands = iter_commands(server, query_regex)
                 await bot.send_message(message['chat']['id'], '\n'.join(commands.values()), parse_mode='HTML')
+
+            elif message['text'].lower().startswith('/test'):
+                link = re.sub('/test', '', message['text'].lower()).strip()
+                vacancy_search = re.search(r'https://praca\.by/vacancy/\d{6}/', link)
+                if link and vacancy_search:
+                    data = prc_parser(link)
+                    data['post_id'] = copy(server['post_id'])
+                    await bot.send_message(message['chat']['id'], 'Работаем', parse_mode='HTML')
+                    inst_path = image('test', text_align='left', font_family='Roboto', font_weight='Bold',
+                                      background_color=(254, 230, 68), original_width=1080, original_height=1080)
+                    inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                                                           place=data.get('short_place', ''),
+                                                           vacancy_tags=data.get('tags', []))
+                    inst_poster(inst_username, inst_description, inst_path, debug=True)
+                else:
+                    await bot.send_message(message['chat']['id'], 'Ссылка не подошла', parse_mode='HTML')
 
             elif message['text'].lower().startswith('/pic'):
                 link = image(background=Image.open('logo.png'), return_link=True,
