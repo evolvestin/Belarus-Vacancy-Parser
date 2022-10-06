@@ -158,7 +158,13 @@ def inst_poster(username: str, description: str, image_path: str, debug: bool = 
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
         driver.get(f'https://www.instagram.com/{username}/')
-        wait_provider(20)
+        wait_provider(4)
+        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
+        div = driver.find_element(By.XPATH, "//div[@role='dialog']")
+        wait_provider(1)
+        div.find_elements(By.TAG_NAME, 'button')[0].click()
+        wait_provider(1)
+
         driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[5].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         wait_provider(1)
