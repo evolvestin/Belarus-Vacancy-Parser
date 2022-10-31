@@ -164,8 +164,7 @@ def inst_poster(username: str, description: str, image_path: str, debug: bool = 
         wait_provider(1)
         div.find_elements(By.TAG_NAME, 'button')[0].click()
         wait_provider(1)
-
-        driver.find_element(By.TAG_NAME, 'nav').find_elements(By.TAG_NAME, 'svg')[5].click()
+        driver.find_elements(By.TAG_NAME, 'svg')[6].click()
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
         wait_provider(1)
         driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
