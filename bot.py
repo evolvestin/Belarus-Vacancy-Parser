@@ -261,11 +261,7 @@ async def repeat_all_messages(message: types.Message):
     global server
     try:
         if message['chat']['id'] in admins:
-            if message['text'].lower().startswith('/reboot'):
-                text, _ = Auth.logs.reboot()
-                await bot.send_message(message['chat']['id'], text, parse_mode='HTML')
-
-            elif message['text'].lower().startswith('/vars'):
+            if message['text'].lower().startswith('/vars'):
                 commands = iter_commands(server, query_regex)
                 await bot.send_message(message['chat']['id'], '\n'.join(commands.values()), parse_mode='HTML')
 
