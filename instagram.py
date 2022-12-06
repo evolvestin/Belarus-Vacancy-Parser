@@ -118,8 +118,8 @@ def poster(auth: AuthCentre, username: str, description: str, image_path: str, d
     try:
         driver = chrome(os.environ.get('local'))
         driver.set_window_size(1000, 1200)
-        driver.get('https://www.instagram.com/')
-        wait_provider(5)  # for screenshot
+        driver.get(f'https://www.instagram.com/{username}/')
+        #wait_provider(5)  # for screenshot
         input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
