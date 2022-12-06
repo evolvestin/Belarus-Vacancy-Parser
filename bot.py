@@ -37,11 +37,10 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 functions.environmental_files()
 channels = {'main': -1001404073893, 'instagram': -1001186786378}
-tz, os.environ['admins'] = timezone(timedelta(hours=3)), '[396978030, 470292601]'
+tz, admins = timezone(timedelta(hours=3)), eval(os.environ['admins'])
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
 Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
-admins = eval(os.environ['admins'])
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
 used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
