@@ -1,14 +1,12 @@
 import os
 import re
-import pickle
 import random
-import string
 import asyncio
 import gspread
 import telebot
 import _thread
 import requests
-import inst_text
+import instagram
 import functions
 from PIL import Image
 from copy import copy
@@ -17,15 +15,11 @@ from image import image
 from GDrive import Drive
 from typing import Union
 from aiogram import types
-from chrome import chrome
 from bs4 import BeautifulSoup
 from aiogram.utils import executor
 from aiogram.dispatcher import Dispatcher
-from selenium.webdriver.common.by import By
 from datetime import datetime, timezone, timedelta
 from functions import time_now, html_link, html_secure
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as ec
 # =================================================================================================================
 stamp1 = time_now()
 
@@ -43,10 +37,11 @@ def vars_query(thread_bot, commands: Union[str, list], regex: str = '(.*?) = (.*
 
 functions.environmental_files()
 channels = {'main': -1001404073893, 'instagram': -1001186786378}
-tz, admins = timezone(timedelta(hours=3)), [396978030, 470292601]
+tz, os.environ['admins'] = timezone(timedelta(hours=3)), '[396978030, 470292601]'
 worksheet = gspread.service_account('person2.json').open('Belarus-Vacancies').worksheet('main')
 Auth = functions.AuthCentre(ID_DEV=-1001312302092, TOKEN=os.environ['TOKEN'], DEV_TOKEN=os.environ['DEV_TOKEN'])
 
+admins = eval(os.environ['admins'])
 server, query_regex = vars_query(Auth.bot, 'vars')
 server['post_id'] = int(server['post_id']) if server.get('post_id') else None
 used_links, inst_username, google_folder_id = worksheet.col_values(1), None, None
@@ -131,59 +126,6 @@ def tg_handler(data: dict):
     text += f"\n🆔 {italic(data['post_id'])}" if data.get('post_id') else ''
     text += f"\n{italic('💼ТЕГИ:')} #{' #'.join(data['tags'])}\n" if data.get('tags') else ''
     return {'text': text, 'image': picture}
-
-
-def inst_poster(username: str, description: str, image_path: str, debug: bool = False):
-    def wait_provider(delay: int = 3):
-        sleep(delay + random.normalvariate(3, 1))
-        if debug:
-            try:
-                file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.png"
-                driver.save_screenshot(file_name)
-                with open('text.txt', 'w') as file:
-                    file.write(str(driver.page_source))
-                with open('text.txt', 'rb') as file:
-                    Auth.bot.send_document(admins[0], file)
-                with open(file_name, 'rb') as file:
-                    Auth.bot.send_photo(admins[0], file)
-                os.remove(file_name)
-            except IndexError and Exception:
-                Auth.dev.executive(None)
-    counter, response = 0, 'Process crashed'
-    try:
-        driver = chrome(os.environ.get('local'))
-        driver.set_window_size(1000, 1200)
-        driver.get(f'https://www.instagram.com/')
-        input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
-        for cookie in pickle.load(open('cookies.pkl', 'rb')):
-            driver.add_cookie(cookie)
-        driver.get(f'https://www.instagram.com/{username}/')
-        wait_provider(4)
-        driver.find_elements(By.TAG_NAME, 'svg')[7].click()
-        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-        wait_provider(1)
-        driver.find_element(By.XPATH, input_xpath).send_keys(f'{os.getcwd()}/{image_path}')
-        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='dialog']")))
-        div = driver.find_element(By.XPATH, "//div[@role='dialog']")
-        wait_provider(1)
-        div.find_elements(By.TAG_NAME, 'button')[1].click()
-        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.XPATH, "//div[@role='tablist']")))
-        wait_provider(1)
-        div.find_elements(By.TAG_NAME, 'button')[1].click()
-        WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
-        wait_provider(1)
-        driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
-        if debug is False:
-            wait_provider(1)
-            div.find_elements(By.TAG_NAME, 'button')[1].click()
-            wait_provider(15)
-            driver.get(f'https://www.instagram.com/{username}/')
-            wait_provider(5)
-            response = driver.find_element(By.TAG_NAME, 'article').find_element(By.TAG_NAME, 'a').get_attribute('href')
-        driver.close()
-    except IndexError and Exception:
-        Auth.dev.executive(None)
-    return str(response)
 
 
 def prc_parser(link: str):
@@ -274,10 +216,10 @@ async def repeat_all_messages(message: types.Message):
                     await bot.send_message(message['chat']['id'], 'Работаем', parse_mode='HTML')
                     inst_path = image('test', text_align='left', font_family='Roboto', font_weight='Bold',
                                       background_color=(254, 230, 68), original_width=1080, original_height=1080)
-                    inst_description = inst_text.generator(post_id=data.get('post_id', 0),
+                    inst_description = instagram.generator(post_id=data.get('post_id', 0),
                                                            place=data.get('short_place', ''),
                                                            vacancy_tags=data.get('tags', []))
-                    inst_poster(inst_username, inst_description, inst_path, debug=True)
+                    instagram.poster(Auth, inst_username, inst_description, inst_path, debug=True)
                 else:
                     await bot.send_message(message['chat']['id'], 'Ссылка не подошла', parse_mode='HTML')
 
@@ -376,11 +318,11 @@ def site_handlers():
                 print('создаем изображение в инстаграм')
                 inst_path = image(inst_handler(data) or 'Sample', text_align='left', font_family='Roboto',
                                   background_color=(254, 230, 68), original_width=1080, original_height=1080)
-                inst_description = inst_text.generator(post_id=data.get('post_id', 0),
-                                                       place=data.get('short_place', ''),
-                                                       vacancy_tags=data.get('tags', []))
+                description = instagram.generator(post_id=data.get('post_id', 0),
+                                                  place=data.get('short_place', ''),
+                                                  vacancy_tags=data.get('tags', []))
                 print('создали изображение, постим в инстаграм')
-                inst_link = inst_poster(inst_username, inst_description, inst_path)
+                inst_link = instagram.poster(Auth, inst_username, description, inst_path)
                 with open(inst_path, 'rb') as picture:
                     Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
                 with open(inst_path, 'rb') as picture:

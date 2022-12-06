@@ -15,8 +15,7 @@ def chrome(local):
                    'download.default_directory': os.path.abspath(os.curdir)}
     chrome_options.add_experimental_option('prefs', preferences)
     if local:
-        os.environ['CHROMEDRIVER_PATH'] = 'chromedriver.exe'
-        return webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), options=chrome_options)
+        return webdriver.Chrome(executable_path='chromedriver.exe', options=chrome_options)
     else:
         chrome_options.add_argument('--headless')
         from webdriver_manager.chrome import ChromeDriverManager
