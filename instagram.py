@@ -65,11 +65,14 @@ def poster(auth: AuthCentre, username: str, description: str, image_path: str, d
         if debug:
             file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.png"
             try:
-                driver.save_screenshot(file_name)
                 with open('text.txt', 'w') as file:
                     file.write(str(driver.page_source))
                 with open('text.txt', 'rb') as file:
                     auth.bot.send_document(admins[0], file)
+            except IndexError and Exception:
+                auth.dev.executive(None)
+            try:
+                driver.save_screenshot(file_name)
                 with open(file_name, 'rb') as file:
                     auth.bot.send_photo(admins[0], file)
             except IndexError and Exception:
