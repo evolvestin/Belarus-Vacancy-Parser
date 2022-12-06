@@ -219,6 +219,9 @@ async def repeat_all_messages(message: types.Message):
                                                            place=data.get('short_place', ''),
                                                            vacancy_tags=data.get('tags', []))
                     instagram.poster(Auth, inst_username, inst_description, inst_path, debug=True)
+                elif 'google' in message['text'].lower():
+                    instagram.test(Auth)
+                    await bot.send_message(message['chat']['id'], 'Выполнено', parse_mode='HTML')
                 else:
                     await bot.send_message(message['chat']['id'], 'Ссылка не подошла', parse_mode='HTML')
 

@@ -59,6 +59,38 @@ def generator(post_id: Union[int, str], place: str, vacancy_tags: list):
     return response
 
 
+def test(auth: AuthCentre):
+    def wait_provider(delay: int = 3):
+        sleep(delay + random.normalvariate(3, 1))
+        file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.png"
+        try:
+            with open('text.txt', 'w') as file:
+                file.write(str(driver.page_source))
+            with open('text.txt', 'rb') as file:
+                auth.bot.send_document(admins[0], file)
+        except IndexError and Exception:
+            auth.dev.executive(None)
+        try:
+            driver.save_screenshot(file_name)
+            with open(file_name, 'rb') as file:
+                auth.bot.send_photo(admins[0], file)
+        except IndexError and Exception:
+            auth.dev.executive(None)
+        try:
+            os.remove(file_name), os.remove('text.txt')
+        except IndexError and Exception:
+            auth.dev.executive(None)
+
+    try:
+        driver = chrome(os.environ.get('local'))
+        driver.set_window_size(1000, 1200)
+        driver.get('https://www.google.com/')
+        wait_provider(4)
+        driver.close()
+    except IndexError and Exception:
+        auth.dev.executive(None)
+
+
 def poster(auth: AuthCentre, username: str, description: str, image_path: str, debug: bool = False):
     def wait_provider(delay: int = 3):
         sleep(delay + random.normalvariate(3, 1))
@@ -86,7 +118,7 @@ def poster(auth: AuthCentre, username: str, description: str, image_path: str, d
     try:
         driver = chrome(os.environ.get('local'))
         driver.set_window_size(1000, 1200)
-        driver.get(f'https://www.instagram.com/')
+        driver.get('https://www.instagram.com/')
         input_xpath = "//input[@accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']"
         for cookie in pickle.load(open('cookies.pkl', 'rb')):
             driver.add_cookie(cookie)
@@ -106,8 +138,8 @@ def poster(auth: AuthCentre, username: str, description: str, image_path: str, d
         WebDriverWait(driver, 20).until(ec.presence_of_element_located((By.TAG_NAME, 'textarea')))
         wait_provider(1)
         driver.find_element(By.TAG_NAME, 'textarea').send_keys(description)
+        wait_provider(1)
         if debug is False:
-            wait_provider(1)
             div.find_elements(By.TAG_NAME, 'button')[1].click()
             wait_provider(15)
             driver.get(f'https://www.instagram.com/{username}/')
