@@ -240,7 +240,7 @@ async def repeat_all_messages(message: types.Message):
                              left_indent=left_indent, top_indent=top_indent, top_indent_2=top_indent_2)
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
-            elif message['text'].lower().startswith('/inst️'):
+            elif message['text'].lower().startswith('/inst'):
                 if server['inst_block'] == 'False':
                     text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
                 else:
