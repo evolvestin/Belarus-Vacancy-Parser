@@ -228,12 +228,14 @@ async def repeat_all_messages(message: types.Message):
             elif message['text'].lower().startswith('/pic'):
                 path, width, height = 'logo.png', 1000, 1000
                 left_indent, top_indent, top_indent_2 = 50, 130, 130
+                modified = re.sub('/([a-zA-Z_]+)', '', message['text'], 1)
+                text = re.sub(r'\s+', ' ', re.sub(r'\.+', '.', modified)).strip()
                 if 'inst' in message['text'].lower():
                     path, width, height = 'logo_inst.png', 1080, 1080
                     left_indent, top_indent, top_indent_2 = 100, 320, 200
                 link = image(background=Image.open(path), return_link=True,
                              original_width=width, original_height=height,
-                             text=re.sub('/([a-z_]+)', '', message['text'], 1).strip(),
+                             text=text or 'No message',
                              font_family='Roboto', font_weight='Condensed',
                              left_indent=left_indent, top_indent=top_indent, top_indent_2=top_indent_2)
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
