@@ -106,7 +106,7 @@ def iter_commands(data: dict, var_format: str):
 def tg_handler(data: dict):
     picture = image(background=Image.open('logo.png'), return_link=True,
                     text=re.sub(r'\(.*?\)', '', data.get('title', 'Sample')).strip(),
-                    font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
+                    font_family='Roboto', font_weight='Condensed', top_indent=130, top_indent_2=130)
     text = f"{html_link(picture, '​​')}️" if picture else ''
     text += f"👨🏻‍💻 {bold(data['title'])}\n" if data.get('title') else ''
     text += f"🏙 {data['short_place']}\n" if data.get('short_place') else ''
@@ -226,12 +226,19 @@ async def repeat_all_messages(message: types.Message):
                     await bot.send_message(message['chat']['id'], 'Ссылка не подошла', parse_mode='HTML')
 
             elif message['text'].lower().startswith('/pic'):
-                link = image(background=Image.open('logo.png'), return_link=True,
-                             text=re.sub('/[pP][iI][cC]', '', message['text'], 1).strip(),
-                             font_family='Roboto', font_weight='Condensed', top_indent=100, top_indent_2=150)
+                path, width, height = 'logo.png', 1000, 1000
+                left_indent, top_indent, top_indent_2 = 50, 130, 130
+                if 'inst' in message['text'].lower():
+                    path, width, height = 'logo_inst.png', 1080, 1080
+                    left_indent, top_indent, top_indent_2 = 100, 320, 200
+                link = image(background=Image.open(path), return_link=True,
+                             original_width=width, original_height=height,
+                             text=re.sub('/([a-z_]+)', '', message['text'], 1).strip(),
+                             font_family='Roboto', font_weight='Condensed',
+                             left_indent=left_indent, top_indent=top_indent, top_indent_2=top_indent_2)
                 await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
 
-            elif message['text'].lower().startswith('/inst'):
+            elif message['text'].lower().startswith('/inst️'):
                 if server['inst_block'] == 'False':
                     text, server['inst_block'] = f"Вакансии в Instagram {bold('не')} публикуются", 'True'
                 else:
