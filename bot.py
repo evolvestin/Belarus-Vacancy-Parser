@@ -229,7 +229,7 @@ async def repeat_all_messages(message: types.Message):
                 path, width, height = 'logo.png', 1000, 1000
                 left_indent, top_indent, top_indent_2 = 50, 130, 130
                 modified = re.sub('/([a-zA-Z_]+)', '', message['text'], 1)
-                text = re.sub(r'\s+', ' ', re.sub(r'\.+', '.', modified)).strip()
+                text = re.sub(r' +', ' ', re.sub(r'\.+', '.', modified)).strip()
                 if 'inst' in message['text'].lower():
                     path, width, height = 'logo_inst.png', 1080, 1080
                     left_indent, top_indent, top_indent_2 = 100, 320, 200
