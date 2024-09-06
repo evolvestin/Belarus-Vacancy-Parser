@@ -35,8 +35,8 @@ def tags_generator():
 
 admins = eval(os.environ['admins'])
 gen_tags, cities = tags_generator()
-text = 'Найти вакансию можно в нашем Telegram канале ' \
-       '(ссылка в шапке профиля) по №{0} (воспользуйтесь поиском по каналу)\n\nID {0}\n\n'
+text = ('Найти вакансию можно в нашем Telegram канале '
+        '(ссылка в шапке профиля) по №{0} (воспользуйтесь поиском по каналу)\n\nID {0}\n\n')
 
 
 def generator(post_id: Union[int, str], place: str, vacancy_tags: list):

@@ -104,11 +104,10 @@ def iter_commands(data: dict, var_format: str):
 
 
 def tg_handler(data: dict):
-    picture = image(background=Image.open('logo.png'), return_link=True,
+    picture = image(background=Image.open('logo.png'),
                     text=re.sub(r'\(.*?\)', '', data.get('title', 'Sample')).strip(),
                     font_family='Roboto', font_weight='Condensed', top_indent=130, top_indent_2=130)
-    text = f"{html_link(picture, '​​')}️" if picture else ''
-    text += f"👨🏻‍💻 {bold(data['title'])}\n" if data.get('title') else ''
+    text = f"👨🏻‍💻 {bold(data['title'])}\n" if data.get('title') else ''
     text += f"🏙 {data['short_place']}\n" if data.get('short_place') else ''
     text += f"🏅 Опыт работы ➡ {data['experience'].capitalize()}\n" if data.get('experience') else ''
     text += f"👨‍🎓 Образование ➡ {data['education'].capitalize()}\n" if data.get('education') else ''
@@ -124,7 +123,7 @@ def tg_handler(data: dict):
     text += f"\n🔎 {html_link(data['link'], 'Источник')}\n" if data.get('link') else ''
     text += f"\n🆔 {italic(data['post_id'])}" if data.get('post_id') else ''
     text += f"\n{italic('💼ТЕГИ:')} #{' #'.join(data['tags'])}\n" if data.get('tags') else ''
-    return {'text': text, 'image': picture}
+    return {'text': text, 'image_path': picture}
 
 
 def prc_parser(link: str):
@@ -206,6 +205,18 @@ async def repeat_all_messages(message: types.Message):
                 commands = iter_commands(server, query_regex)
                 await bot.send_message(message['chat']['id'], '\n'.join(commands.values()), parse_mode='HTML')
 
+            elif message.text.lower().startswith('/test_vacancy'):
+                link = re.sub('/test_vacancy', '', message['text'].lower()).strip()
+                vacancy_search = re.search(r'https://praca\.by/vacancy/\d{6}/', link)
+                if link and vacancy_search:
+                    tg = tg_handler(prc_parser(link))
+                    with open(tg['image_path'], 'rb') as file:
+                        Auth.bot.send_photo(message.chat.id, file, caption=tg['text'],
+                                            parse_mode='HTML', show_caption_above_media=True)
+                    os.remove(tg['image_path'])
+                else:
+                    await bot.send_message(message.chat.id, 'Ссылка не подошла', parse_mode='HTML')
+
             elif message['text'].lower().startswith('/test'):
                 link = re.sub('/test', '', message['text'].lower()).strip()
                 vacancy_search = re.search(r'https://praca\.by/vacancy/\d{6}/', link)
@@ -225,20 +236,22 @@ async def repeat_all_messages(message: types.Message):
                 else:
                     await bot.send_message(message['chat']['id'], 'Ссылка не подошла', parse_mode='HTML')
 
-            elif message['text'].lower().startswith('/pic'):
+            elif message.text.lower().startswith('/pic'):
                 path, width, height = 'logo.png', 1000, 1000
                 left_indent, top_indent, top_indent_2 = 50, 130, 130
-                modified = re.sub('/([a-zA-Z_]+)', '', message['text'], 1)
+                modified = re.sub('/([a-zA-Z_]+)', '', message.text, 1)
                 text = re.sub(r' +', ' ', re.sub(r'\.+', '.', modified)).strip()
-                if 'inst' in message['text'].lower():
+                if 'inst' in message.text.lower():
                     path, width, height = 'logo_inst.png', 1080, 1080
                     left_indent, top_indent, top_indent_2 = 100, 320, 200
-                link = image(background=Image.open(path), return_link=True,
-                             original_width=width, original_height=height,
-                             text=text or 'No message',
-                             font_family='Roboto', font_weight='Condensed',
-                             left_indent=left_indent, top_indent=top_indent, top_indent_2=top_indent_2)
-                await bot.send_message(message['chat']['id'], f"{html_link(link, '​​')}️", parse_mode='HTML')
+                file_name = image(background=Image.open(path),
+                                  original_width=width, original_height=height,
+                                  text=text or 'No message',
+                                  font_family='Roboto', font_weight='Condensed',
+                                  left_indent=left_indent, top_indent=top_indent, top_indent_2=top_indent_2)
+                with open(file_name, 'rb') as file:
+                    Auth.bot.send_photo(message.chat.id, file)
+                os.remove(file_name)
 
             elif message['text'].lower().startswith('/inst'):
                 if server['inst_block'] == 'False':
@@ -314,13 +327,25 @@ def site_handlers():
             data['Причина'] = f"{'Добро'}ном"
 
         if data.get('Причина'):
-            text = f"{html_link(tg['image'], '​​') if tg.get('image') else ''}️Не опубликовано: &#123;\n"
+            text = 'Не опубликовано: &#123;\n'
             for key, value in data.items():
                 selected = ['link', 'money', 'title', 'Причина', 'short_place']
                 text += f"{' ' * 6}{functions.under(bold(key)) if key in selected else key}: {html_secure(value)}\n"
-            Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
+            if tg['image_path']:
+                with open(tg['image_path'], 'rb') as file:
+                    Auth.bot.send_photo(
+                        admins[0], file, caption=f'{text}&#125;', parse_mode='HTML', show_caption_above_media=True)
+                os.remove(tg['image_path'])
+            else:
+                Auth.bot.send_message(admins[0], f'{text}&#125;', parse_mode='HTML')
         else:
-            message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
+            if tg['image_path']:
+                with open(tg['image_path'], 'rb') as file:
+                    message = Auth.bot.send_photo(
+                        channels['main'], file, caption=tg['text'], parse_mode='HTML', show_caption_above_media=True)
+                os.remove(tg['image_path'])
+            else:
+                message = Auth.bot.send_message(channels['main'], tg['text'], parse_mode='HTML')
             server['post_id'] = message.message_id + 1
             print('POSTING date', server['date'], 'message_date', datetime.fromtimestamp(message.date, tz))
             server['date'] = datetime.fromtimestamp(message.date, tz)
@@ -335,7 +360,8 @@ def site_handlers():
                 print('создали изображение, постим в инстаграм')
                 inst_link = instagram.poster(Auth, inst_username, description, inst_path)
                 with open(inst_path, 'rb') as picture:
-                    Auth.bot.send_photo(channels['instagram'], picture, caption=inst_link)
+                    Auth.bot.send_photo(
+                        channels['instagram'], picture, caption=inst_link, show_caption_above_media=True)
                 with open(inst_path, 'rb') as picture:
                     Auth.bot.send_document(channels['instagram'], picture)
                 os.remove(inst_path)
@@ -375,5 +401,5 @@ def start(stamp):
         Auth.dev.thread_except()
 
 
-if os.environ.get('local'):
+if __name__ == '__main__' and os.environ.get('local'):
     start(stamp1)

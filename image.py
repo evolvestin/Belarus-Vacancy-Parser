@@ -8,7 +8,6 @@ import sqlite3
 from copy import copy
 from io import BytesIO
 from typing import Union
-from telegraph import upload
 from db.emoji_gen import emojis_path
 from PIL.ImageFont import FreeTypeFont
 from PIL import Image, ImageFont, ImageDraw
@@ -97,7 +96,7 @@ def height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regula
     return response
 
 
-def image(text: str, return_link=False,
+def image(text: str,
           background: Union[Image.open, Image.new] = None,
           font_size: int = 300, font_family: str = 'OpenSans', font_weight: str = 'Regular',
           original_width: int = 1000, original_height: int = 1000, text_align: str = 'center',
@@ -184,10 +183,5 @@ def image(text: str, return_link=False,
     if mask:
         background.paste(mask, (0, 0), mask)
         background.save(file_name)
-        if return_link:
-            with open(file_name, 'rb') as file:
-                response = f'https://telegra.ph{upload.upload_file(file)[0]}'
-            os.remove(file_name)
-        else:
-            return file_name
+        return file_name
     return response
