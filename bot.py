@@ -186,11 +186,24 @@ def prc_parser(link: str):
 async def detector(message: types.Message):
     global server
     try:
-        if message['chat']['id'] == channels['main']:
+        if message.chat.id == channels['main']:
             await asyncio.sleep(10)
-            server['post_id'] = message['message_id'] + 1
-            print('CATCHING date', server['date'], 'message_date', datetime.fromtimestamp(message['date'], tz))
-            server['date'] = datetime.fromtimestamp(message['date'], tz)
+            server['post_id'] = message.message_id + 1
+
+            if isinstance(message.date, (int, float)):
+                try:
+                    message_date = datetime.fromtimestamp(message.date, tz)
+                except (ValueError, OSError) as e:
+                    print(f'Error converting timestamp {message.date}: {e}')
+                    message_date = datetime.now(tz)
+            elif isinstance(message.date, datetime):
+                message_date = message.date
+            else:
+                print(f'Unexpected type for message.date: {type(message.date)}')
+                message_date = datetime.now(tz)
+
+            print('CATCHING date', server['date'], 'message_date', message_date)
+            server['date'] = message_date
             edit_vars()
     except IndexError and Exception:
         await Auth.dev.async_except(message)
@@ -358,7 +371,9 @@ def site_handlers():
                                                   place=data.get('short_place', ''),
                                                   vacancy_tags=data.get('tags', []))
                 print('создали изображение, постим в инстаграм')
-                inst_link = instagram.poster(Auth, inst_username, description, inst_path)
+                print(f'Description: {description}')
+                inst_link = 'Posting process is disabled'
+                # inst_link = instagram.poster(Auth, inst_username, description, inst_path)
                 with open(inst_path, 'rb') as picture:
                     Auth.bot.send_photo(
                         channels['instagram'], picture, caption=inst_link, show_caption_above_media=True)
