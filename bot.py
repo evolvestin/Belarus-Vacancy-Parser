@@ -291,15 +291,17 @@ def site_handlers():
     def site_handler(address: str, main_class: str, link_class: str, parser):
         global used_links, worksheet
         now, links = datetime.now(tz), []
-        if (server['date'] + timedelta(hours=2)) < now \
+        if (server['date'].replace(tzinfo=tz) + timedelta(hours=2)) < now \
                 and server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
             soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
             for link_div in soup.find_all('div', attrs={'class': main_class}):
                 link = link_div.find('a', attrs={'class': link_class})
                 links.append(link.get('href')) if link else None
             for link in links:
-                if (server['date'] + timedelta(hours=2)) < now \
-                        and link not in used_links and server['block'] != 'True':
+                if (
+                        (server['date'].replace(tzinfo=tz) + timedelta(hours=2)) < now
+                        and link not in used_links and server['block'] != 'True'
+                ):
                     try:
                         link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
                     except IndexError and Exception as error:
