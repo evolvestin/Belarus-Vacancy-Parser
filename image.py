@@ -12,7 +12,6 @@ from db.emoji_gen import emojis_path
 from PIL.ImageFont import FreeTypeFont
 from PIL import Image, ImageFont, ImageDraw
 from statistics import median as median_function
-sql_patterns = ['database is locked', 'no such table']
 
 
 def get_fonts():
@@ -49,7 +48,7 @@ class SQL:
                 with self.connection:
                     self.cursor.execute(sql)
             except IndexError and Exception as error:
-                for pattern in sql_patterns:
+                for pattern in ('database is locked', 'no such table'):
                     if pattern in str(error):
                         lock = True
                 if lock is False:
@@ -96,24 +95,37 @@ def height(text: str, size: int, family: str = 'OpenSans', weight: str = 'Regula
     return response
 
 
-def image(text: str,
-          background: Union[Image.open, Image.new] = None,
-          font_size: int = 300, font_family: str = 'OpenSans', font_weight: str = 'Regular',
-          original_width: int = 1000, original_height: int = 1000, text_align: str = 'center',
-          left_indent: int = 50, top_indent: int = 50, left_indent_2: int = 0, top_indent_2: int = 0,
-          text_color: tuple[int, int, int] = (0, 0, 0), background_color: tuple[int, int, int] = (256, 256, 256)):
-    file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.jpg"
+def image(
+        text: str,
+        background: Union[Image.open, Image.new] = None,
+        font_size: int = 300,
+        font_family: str = 'OpenSans',
+        font_weight: str = 'Regular',
+        original_width: int = 1000,
+        original_height: int = 1000,
+        text_align: str = 'center',
+        left_indent: int = 50,
+        top_indent: int = 50,
+        left_indent_2: int = 0,
+        top_indent_2: int = 0,
+        text_color: tuple[int, int, int] = (0, 0, 0),
+        background_color: tuple[int, int, int] = (256, 256, 256)
+):
     mask, family, spacing, response, coefficient, modal_height = None, font_family, 0, None, 0.6, 0
-    original_width = background.getbbox()[2] if background and original_width == 1000 else original_width
-    original_height = background.getbbox()[3] if background and original_height == 1000 else original_height
-    db, original_scale = SQL(emojis_path), (original_width, original_height)
+
+    if background and original_height == 1000:
+        original_height = background.getbbox()[3]
+    if background and not original_width == 1000:
+        original_width = background.getbbox()[2]
+
+    db = SQL(emojis_path)
     original_height -= top_indent * 2 + top_indent_2
     original_width -= left_indent * 2 + left_indent_2
     size = font_size if font_size != 300 else original_width // 3
-    background = copy(background) or Image.new('RGB', original_scale, background_color)
+    background = copy(background) or Image.new(mode='RGB', size=(original_width, original_height), color=background_color)
     while spacing < modal_height * coefficient or spacing == 0:
         skip, layers, heights, weights = False, [], [], []
-        mask = Image.new('RGBA', original_scale, (0, 0, 0, 0))
+        mask = Image.new(mode='RGBA', size=(original_width, original_height), color=(0, 0, 0, 0))
         for line in text.strip().split('\n'):
             line_weight, layer_array = font_weight, []
             if line.startswith('**') and line.endswith('**'):
@@ -181,6 +193,7 @@ def image(text: str,
         size -= 1
     db.close()
     if mask:
+        file_name = f"{''.join(random.sample(string.ascii_letters, 10))}.jpg"
         background.paste(mask, (0, 0), mask)
         background.save(file_name)
         return file_name
