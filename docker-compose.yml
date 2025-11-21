@@ -1,7 +1,7 @@
 services:
   detector:
     build: .
-    container_name: lot_detector
+    container_name: vacancies
     restart: always
     env_file:
       - .env
