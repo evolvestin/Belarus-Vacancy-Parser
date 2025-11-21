@@ -394,6 +394,16 @@ def site_handlers():
 
 
 def start(stamp):
+    def heartbeat():
+        while True:
+            try:
+                os.makedirs('tmp', exist_ok=True)
+                with open('tmp/healthy', 'w') as f:
+                    f.write('ok')
+            except Exception as e:
+                print(f"Heartbeat error: {e}")
+            sleep(30)
+
     def set_async_thread():
         loop = asyncio.new_event_loop()
         for async_element in async_threads:
@@ -410,6 +420,9 @@ def start(stamp):
             Auth.dev.start(stamp, alert)
             Auth.dev.printer(f'Бот запущен за {time_now() - stamp} сек.')
 
+        # Запуск heartbeat для Docker Healthcheck
+        _thread.start_new_thread(heartbeat, ())
+
         for thread_element in threads:
             _thread.start_new_thread(thread_element, ())
         _thread.start_new_thread(set_async_thread, ()) if async_threads else None
@@ -418,5 +431,5 @@ def start(stamp):
         Auth.dev.thread_except()
 
 
-if __name__ == '__main__' and os.environ.get('local'):
+if __name__ == '__main__':
     start(stamp1)
