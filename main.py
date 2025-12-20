@@ -293,10 +293,20 @@ def site_handlers():
         now, links = datetime.now(tz), []
         if (server['date'].replace(tzinfo=tz) + timedelta(hours=2)) < now \
                 and server['block'] != 'True' and 10 <= int(now.strftime('%H')) < 21:
-            soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
-            for link_div in soup.find_all('div', attrs={'class': main_class}):
-                link = link_div.find('a', attrs={'class': link_class})
-                links.append(link.get('href')) if link else None
+            
+            try:
+                soup = BeautifulSoup(requests.get(address, headers=headers).text, 'html.parser')
+                for link_div in soup.find_all('div', attrs={'class': main_class}):
+                    link_tag = link_div.find('a', attrs={'class': link_class})
+                    if link_tag:
+                        href = link_tag.get('href')
+                        # FIX: Handle relative URLs
+                        if href and href.startswith('/'):
+                            href = f'https://praca.by{href}'
+                        links.append(href)
+            except Exception as e:
+                Auth.dev.printer(f"Error parsing search page: {e}")
+
             for link in links:
                 if (
                         (server['date'].replace(tzinfo=tz) + timedelta(hours=2)) < now
@@ -313,7 +323,7 @@ def site_handlers():
                             sleep(5)
                         else:
                             service_account = gspread.service_account('person2.json')
-                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')#
+                            Auth.dev.message(text=f'Ошибка в вакансиях\n{html_secure(error)}')
                             worksheet = service_account.open('Belarus-Vacancies').worksheet('main')
                             link_range = worksheet.range(f'A{len(used_links) + 1}:A{len(used_links) + 1}')
                         #else:
